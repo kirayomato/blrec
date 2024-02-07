@@ -43,13 +43,13 @@ class PathProvider(AsyncCooperationMixin):
             os.path.expanduser(os.path.join(self.out_dir, relpath) + '.flv')
         )
         os.makedirs(os.path.dirname(pathname), exist_ok=True)
-        while os.path.exists(pathname):
-            root, ext = os.path.splitext(pathname)
-            m = re.search(r'_\((\d+)\)$', root)
-            if m is None:
-                root += '_(1)'
-            else:
-                root = re.sub(r'\(\d+\)$', f'({int(m.group(1)) + 1})', root)
-            pathname = root + ext
+        # while os.path.exists(pathname):
+        #     root, ext = os.path.splitext(pathname)
+        #     m = re.search(r'_\((\d+)\)$', root)
+        #     if m is None:
+        #         root += '_(1)'
+        #     else:
+        #         root = re.sub(r'\(\d+\)$', f'({int(m.group(1)) + 1})', root)
+        #     pathname = root + ext
 
         return pathname
