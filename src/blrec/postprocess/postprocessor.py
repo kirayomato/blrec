@@ -156,8 +156,17 @@ class Postprocessor(
 
         video_path = await self._queue.get()
         self._completed_files.append(video_path)
-        ts0 = self.recorder._stream_recorder._impl._dumper.timestamp
-        self._logger.info(f'{video_path}, timestamp:{datetime.fromtimestamp(ts0)}')
+
+        try:
+            ts0 = self.recorder._stream_recorder._impl._dumper.ts0
+            self._logger.info(f'{video_path}, timestamp:{datetime.fromtimestamp(ts0)}')
+        except:
+            self._logger.error(f'{video_path}, get timestamp failed')
+            try:
+                ts0 = self.recorder._stream_recorder._impl._dumper.timestamp
+            except:
+                pass
+
         async with self._worker_semaphore:
             self._logger.debug(f'Postprocessing... {video_path}')
             await self._wait_for_metadata_file(video_path)

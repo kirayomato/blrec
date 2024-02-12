@@ -63,7 +63,7 @@ class Dumper:
     def _close_file(self) -> None:
         if self._file is not None and not self._file.closed:
             self._file.close()
-
+            self.ts0 = self.timestamp
             logger.debug(f'Closed file: {self._path}')
             self._file_closed.on_next(self._path)
 
