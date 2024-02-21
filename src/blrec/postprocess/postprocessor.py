@@ -159,19 +159,20 @@ class Postprocessor(
 
         try:
             rec = self.recorder._stream_recorder
-            if rec.stream_format == 'flv':
-                ts0 = rec._impl._dumper.ts0
-            else:
+            if rec.stream_format == 'fmp4':
                 ts0 = rec._impl._segment_dumper.ts0
+            else:
+                ts0 = rec._impl._dumper.ts0
             self._logger.info(f'{video_path}, timestamp:{datetime.fromtimestamp(ts0)}')
-        except:
-            self._logger.error(f'{video_path}, get timestamp failed')
+        except BaseException as e:
+            self._logger.error(f'{video_path}, get ts0 failed:{e}')
             try:
-                if rec.stream_format == 'flv':
-                    ts0 = rec._impl._dumper.timestamp
-                else:
+                if rec.stream_format == 'fmp4':
                     ts0 = rec._impl._segment_dumper.timestamp
-            except:
+                else:
+                    ts0 = rec._impl._dumper.timestamp
+            except BaseException as e:
+                self._logger.error(f'{video_path}, get timestamp failed:{e}')
                 pass
 
         async with self._worker_semaphore:
@@ -203,6 +204,8 @@ class Postprocessor(
                         self.recorder.out_dir,
                         self.recorder.path_template)
                     path0, timestamp = pp(ts0)
+                    if rec.stream_format == 'fmp4':
+                        path0 = str(PurePath(path0).with_suffix('.m4s'))
                     if video_path != path0:
                         os.rename(video_path, path0)
                         self._logger.info(f'Rename {video_path} to {path0}')
