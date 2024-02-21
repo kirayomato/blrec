@@ -158,12 +158,19 @@ class Postprocessor(
         self._completed_files.append(video_path)
 
         try:
-            ts0 = self.recorder._stream_recorder._impl._dumper.ts0
+            rec = self.recorder._stream_recorder
+            if rec.stream_format == 'flv':
+                ts0 = rec._impl._dumper.ts0
+            else:
+                ts0 = rec._impl._segment_dumper.ts0
             self._logger.info(f'{video_path}, timestamp:{datetime.fromtimestamp(ts0)}')
         except:
             self._logger.error(f'{video_path}, get timestamp failed')
             try:
-                ts0 = self.recorder._stream_recorder._impl._dumper.timestamp
+                if rec.stream_format == 'flv':
+                    ts0 = rec._impl._dumper.timestamp
+                else:
+                    ts0 = rec._impl._segment_dumper.timestamp
             except:
                 pass
 
