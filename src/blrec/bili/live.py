@@ -45,6 +45,7 @@ class Live:
 
         self._session = aiohttp.ClientSession(
             connector=aiohttp.TCPConnector(limit=200),
+            headers=self.headers,
             raise_for_status=True,
             trust_env=True,
         )
@@ -172,7 +173,7 @@ class Live:
 
     async def check_connectivity(self) -> bool:
         try:
-            await self._session.head('https://live.bilibili.com/', timeout=3)
+            await self._session.head('https://live.bilibili.com/', timeout=5)
         except (aiohttp.ClientConnectionError, asyncio.TimeoutError):
             return False
         else:
