@@ -206,6 +206,9 @@ class Postprocessor(
                     path0, timestamp = pp(ts0)
                     if rec.stream_format == 'fmp4':
                         path0 = str(PurePath(path0).with_suffix('.m4s'))
+                    if self.remux_to_mp4:
+                        path0 = str(PurePath(path0).with_suffix('.mp4'))
+                        video_path = str(PurePath(video_path).with_suffix('.mp4'))
                     if video_path != path0:
                         os.rename(video_path, path0)
                         self._logger.info(f'Rename {video_path} to {path0}')
