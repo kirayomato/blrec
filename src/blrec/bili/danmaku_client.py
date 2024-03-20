@@ -11,7 +11,7 @@ import aiohttp
 import brotli
 from aiohttp import ClientSession
 from loguru import logger
-from tenacity import retry, retry_if_exception_type, wait_exponential
+from tenacity import retry, retry_if_exception_type, wait_exponential, stop_after_delay
 
 from blrec.logging.context import async_task_with_logger_context
 
@@ -131,6 +131,7 @@ class DanmakuClient(EventEmitter[DanmakuListener], AsyncStoppableMixin):
         retry=retry_if_exception_type(
             (asyncio.TimeoutError, aiohttp.ClientError, ConnectionError)
         ),
+        stop=stop_after_delay(10),
     )
     async def _connect(self) -> None:
         self._logger.debug('Connecting to server...')
@@ -141,6 +142,12 @@ class DanmakuClient(EventEmitter[DanmakuListener], AsyncStoppableMixin):
             await self._handle_auth_reply(reply)
         except Exception:
             self._host_index += 1
+            # self._logger.warning('Trying Connecting without cookies...')
+            # t = self.headers
+            # t['Cookie'] = ""
+            # self.headers['Cookie'] = t
+            # self.webapi.headers=t
+            # self.appapi.headers= t
             if self._host_index >= len(self._danmu_info['host_list']):
                 self._host_index = 0
                 # self._rotate_api_platform()  # XXX: use web api only
