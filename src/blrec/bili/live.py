@@ -174,7 +174,7 @@ class Live:
     async def check_connectivity(self) -> bool:
         try:
             await self._session.head('https://live.bilibili.com/', timeout=5)
-        except (aiohttp.ClientConnectionError, asyncio.TimeoutError):
+        except (aiohttp.ClientConnectionError, asyncio.TimeoutError, aiohttp.ClientResponseError):
             return False
         else:
             return True
