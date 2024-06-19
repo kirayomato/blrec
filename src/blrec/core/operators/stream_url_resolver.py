@@ -162,14 +162,10 @@ class StreamURLResolver(AsyncCooperationMixin):
                 self._attempts_for_no_stream = 0
         except NoStreamQualityAvailable:
             qn = self._stream_param_holder.quality_number
-            if qn == 10000:
-                logger.warning('The original stream quality (10000) is not available')
-            else:
-                logger.info(
-                    f'The specified stream quality ({qn}) is not available, '
-                    'will using the original stream quality (10000) instead.'
-                )
-                self._stream_param_holder.fall_back_quality()
+            logger.warning(
+                f'The specified stream quality ({qn}) is not available, ' +
+                f'will using the stream quality ({self._stream_param_holder.fall_back_quality(qn)}) instead.'
+            )
         except NoAlternativeStreamAvailable:
             logger.debug(
                 'No alternative stream url available, '
