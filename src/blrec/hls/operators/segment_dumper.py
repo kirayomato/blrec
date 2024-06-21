@@ -73,6 +73,14 @@ class SegmentDumper:
     def _update_filesize(self, size: int) -> None:
         self._filesize += size
 
+    def _is_redundant(
+        self, prev_init_item: Optional[InitSectionData], curr_init_item: InitSectionData
+    ) -> bool:
+        return (
+            prev_init_item is not None
+            and curr_init_item.payload == prev_init_item.payload
+        )
+
     def _must_split_file(
         self, prev_init_item: Optional[InitSectionData], curr_init_item: InitSectionData
     ) -> bool:
@@ -85,6 +93,10 @@ class SegmentDumper:
         logger.debug(f'previous init section profile: {prev_profile}')
         curr_profile = ffprobe(curr_init_item.payload)
         logger.debug(f'current init section profile: {curr_profile}')
+
+        if prev_init_item.payload == curr_init_item.payload:
+            logger.debug('the current init section is identical to the previous one')
+            return False
 
         prev_video_profile = prev_profile['streams'][0]
         prev_audio_profile = prev_profile['streams'][1]
@@ -104,7 +116,6 @@ class SegmentDumper:
             or prev_video_profile['coded_height'] != curr_video_profile['coded_height']
         ):
             logger.warning('Video parameters changed')
-            return True
 
         if (
             prev_audio_profile['codec_name'] != curr_audio_profile['codec_name']
@@ -113,9 +124,12 @@ class SegmentDumper:
             or prev_audio_profile.get('bit_rate') != curr_audio_profile.get('bit_rate')
         ):
             logger.warning('Audio parameters changed')
-            return True
 
-        return False
+        logger.debug(
+            'must split the file '
+            'because the current init section is not identical to the previous one'
+        )
+        return True
 
     def _need_split_file(self, item: Union[InitSectionData, SegmentData]) -> bool:
         return item.segment.custom_parser_values.get('split', False)
@@ -136,6 +150,8 @@ class SegmentDumper:
                 split_file = False
 
                 if isinstance(item, InitSectionData):
+                    if self._is_redundant(last_init_item, item):
+                        return
                     split_file = self._must_split_file(last_init_item, item)
                     last_init_item = item
 

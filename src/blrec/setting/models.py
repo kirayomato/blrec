@@ -72,16 +72,14 @@ __all__ = (
 
 
 DEFAULT_OUT_DIR: Final[str] = os.environ.get('BLREC_DEFAULT_OUT_DIR', '.')
-DEFAULT_LOG_DIR: Final[str] = os.environ.get(
-    'BLREC_DEFAULT_LOG_DIR', '~/.blrec/logs/')
+DEFAULT_LOG_DIR: Final[str] = os.environ.get('BLREC_DEFAULT_LOG_DIR', '~/.blrec/logs/')
 DEFAULT_SETTINGS_FILE: Final[str] = os.environ.get(
     'BLREC_DEFAULT_SETTINGS_FILE', '~/.blrec/settings.toml'
 )
 
 
 class EnvSettings(BaseSettings):
-    settings_file: Annotated[str, Field(
-        env='BLREC_CONFIG')] = DEFAULT_SETTINGS_FILE
+    settings_file: Annotated[str, Field(env='BLREC_CONFIG')] = DEFAULT_SETTINGS_FILE
     out_dir: Annotated[Optional[str], Field(env='BLREC_OUT_DIR')] = None
     log_dir: Annotated[Optional[str], Field(env='BLREC_LOG_DIR')] = None
     api_key: Annotated[
@@ -112,8 +110,7 @@ class BaseModel(PydanticBaseModel):
             return camel_case(string)
 
     @staticmethod
-    def _validate_with_collection(
-            value: _V, allowed_values: Collection[_V]) -> None:
+    def _validate_with_collection(value: _V, allowed_values: Collection[_V]) -> None:
         if value not in allowed_values:
             raise ValueError(
                 f'the value {value} does not be allowed, '
@@ -187,8 +184,7 @@ class RecorderOptions(BaseModel):
         return value
 
     @validator('disconnection_timeout')
-    def _validate_disconnection_timeout(
-            cls, value: Optional[int]) -> Optional[int]:
+    def _validate_disconnection_timeout(cls, value: Optional[int]) -> Optional[int]:
         if value is not None:
             allowed_values = frozenset(60 * i for i in (3, 5, 10, 15, 20, 30))
             cls._validate_with_collection(value, allowed_values)
@@ -312,19 +308,14 @@ class TaskOptions(BaseModel):
     def from_settings(cls, settings: TaskSettings) -> TaskOptions:
         return cls(
             **settings.dict(
-                include={
-                    'output',
-                    'header',
-                    'danmaku',
-                    'recorder',
-                    'postprocessing'}
+                include={'output', 'header', 'danmaku', 'recorder', 'postprocessing'}
             )
         )
 
 
 class TaskSettings(TaskOptions):
     # must use the real room id rather than the short room id!
-    room_id: int
+    room_id: Annotated[int, Field(ge=1, lt=2**32)]
     enable_monitor: bool = True
     enable_recorder: bool = True
 
@@ -354,8 +345,7 @@ class SpaceSettings(BaseModel):
 
     @validator('check_interval')
     def _validate_interval(cls, value: int) -> int:
-        allowed_values = frozenset(
-            (0, 10, 30, *(60 * i for i in (1, 3, 5, 10))))
+        allowed_values = frozenset((0, 10, 30, *(60 * i for i in (1, 3, 5, 10))))
         cls._validate_with_collection(value, allowed_values)
         return value
 
@@ -422,8 +412,7 @@ class TelegramSettings(BaseModel):
 
     @validator('token')
     def _validate_token(cls, value: str) -> str:
-        if value != '' and not re.fullmatch(
-                r'[0-9]{8,10}:[a-zA-Z0-9_-]{35}', value):
+        if value != '' and not re.fullmatch(r'[0-9]{8,10}:[a-zA-Z0-9_-]{35}', value):
             raise ValueError('token is invalid')
         return value
 
@@ -701,8 +690,7 @@ class Settings(BaseModel):
         cls, webhooks: List[WebHookSettings]
     ) -> List[WebHookSettings]:
         if len(webhooks) >= cls._MAX_WEBHOOKS:
-            raise ValueError(
-                f'Out of max webhooks limits: {cls._MAX_WEBHOOKS}')
+            raise ValueError(f'Out of max webhooks limits: {cls._MAX_WEBHOOKS}')
         return webhooks
 
 

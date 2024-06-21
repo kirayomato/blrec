@@ -21,6 +21,7 @@ from .exceptions import (
 )
 from .helpers import extract_codecs, extract_formats, extract_streams
 from .models import LiveStatus, RoomInfo, UserInfo
+from .net import connector, timeout
 from .typing import ApiPlatform, QualityNumber, ResponseData, StreamCodec, StreamFormat
 
 __all__ = ('Live',)
@@ -44,10 +45,11 @@ class Live:
         self._html_page_url = f'https://live.bilibili.com/{room_id}'
 
         self._session = aiohttp.ClientSession(
-            connector=aiohttp.TCPConnector(limit=200),
-            headers=self.headers,
+            connector=connector,
+            connector_owner=False,
             raise_for_status=True,
             trust_env=True,
+            timeout=timeout,
         )
         self._appapi = AppApi(self._session, self.headers, room_id=room_id)
         self._webapi = WebApi(self._session, self.headers, room_id=room_id)
@@ -173,11 +175,13 @@ class Live:
 
     async def check_connectivity(self) -> bool:
         try:
-            await self._session.head('https://live.bilibili.com/', timeout=5)
-        except (aiohttp.ClientConnectionError, asyncio.TimeoutError, aiohttp.ClientResponseError):
-            return False
-        else:
+            await self._session.head('https://live.bilibili.com/', timeout=3, headers={
+                'User-Agent': self._user_agent,
+            })
             return True
+        except Exception as e:
+            self._logger.warning(f'Check connectivity failed: {repr(e)}')
+            return False
 
     async def update_info(self, raise_exception: bool = False) -> bool:
         return all(

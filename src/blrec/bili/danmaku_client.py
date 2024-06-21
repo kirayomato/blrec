@@ -11,7 +11,7 @@ import aiohttp
 import brotli
 from aiohttp import ClientSession
 from loguru import logger
-from tenacity import retry, retry_if_exception_type, wait_exponential, stop_after_delay
+from tenacity import retry, retry_if_exception_type, wait_exponential
 
 from blrec.logging.context import async_task_with_logger_context
 
@@ -131,7 +131,6 @@ class DanmakuClient(EventEmitter[DanmakuListener], AsyncStoppableMixin):
         retry=retry_if_exception_type(
             (asyncio.TimeoutError, aiohttp.ClientError, ConnectionError)
         ),
-        stop=stop_after_delay(10),
     )
     async def _connect(self) -> None:
         self._logger.debug('Connecting to server...')
