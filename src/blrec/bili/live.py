@@ -333,8 +333,8 @@ class Live:
             return urls[1]
         except IndexError:
             # if qn == 10000:
-            raise NoStreamQualityAvailable(stream_format, stream_codec, qn)
-            # raise NoAlternativeStreamAvailable(stream_format, stream_codec, qn)
+            # raise NoStreamQualityAvailable(stream_format, stream_codec, qn)
+            raise NoAlternativeStreamAvailable(stream_format, stream_codec, qn)
 
     def _check_room_play_info(self, data: ResponseData) -> None:
         if data.get('is_hidden'):
