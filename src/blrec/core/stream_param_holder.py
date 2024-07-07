@@ -77,6 +77,7 @@ class StreamParamHolder:
             self._real_quality_number = 150
         else:
             self._real_quality_number = 10000
+        self._quality_number = self._real_quality_number
         return self._real_quality_number
 
     def rotate_api_platform(self) -> None:
