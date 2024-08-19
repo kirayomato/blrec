@@ -156,7 +156,6 @@ class Postprocessor(
         video_path = await self._queue.get()
         self._completed_files.append(video_path)
 
-
         async with self._worker_semaphore:
             self._logger.debug(f'Postprocessing... {video_path}')
             await self._wait_for_metadata_file(video_path)
@@ -186,7 +185,8 @@ class Postprocessor(
                         ts0 = rec._impl._segment_dumper.ts0
                     else:
                         ts0 = rec._impl._dumper.ts0
-                    self._logger.info(f'{video_path}, timestamp:{datetime.fromtimestamp(ts0)}')
+                    self._logger.info(
+                        f'{video_path}, timestamp:{datetime.fromtimestamp(ts0)}')
                 except BaseException as e:
                     self._logger.error(f'{video_path}, get ts0 failed:{e}')
                     try:
@@ -195,7 +195,8 @@ class Postprocessor(
                         else:
                             ts0 = rec._impl._dumper.timestamp
                     except BaseException as e:
-                        self._logger.error(f'{video_path}, get timestamp failed:{e}')
+                        self._logger.error(
+                            f'{video_path}, get timestamp failed:{e}')
                 if ts0:
                     try:
                         path0 = "Unknown"
@@ -208,12 +209,17 @@ class Postprocessor(
                             path0 = str(PurePath(path0).with_suffix('.m4s'))
                         if self.remux_to_mp4:
                             path0 = str(PurePath(path0).with_suffix('.mp4'))
-                            video_path = str(PurePath(video_path).with_suffix('.mp4'))
+                            video_path = str(
+                                PurePath(video_path).with_suffix('.mp4'))
                         if video_path != path0:
                             os.rename(video_path, path0)
-                            self._logger.info(f'Rename {video_path} to {path0}')
-                            os.rename(file_name + '.xml', os.path.splitext(path0)[0] + '.xml')
-                            self._logger.info(f"Rename {file_name + '.xml'} to {os.path.splitext(path0)[0] + '.xml'}")
+                            self._logger.info(
+                                f'Rename {video_path} to {path0}')
+                            os.rename(
+                                file_name + '.xml',
+                                os.path.splitext(path0)[0] + '.xml')
+                            self._logger.info(
+                                f"Rename {file_name + '.xml'} to {os.path.splitext(path0)[0] + '.xml'}")
                         else:
                             self._logger.info(f'Skip Rename for {video_path}')
                     except Exception as e:
@@ -235,7 +241,7 @@ class Postprocessor(
             if os.path.getsize(video_path) < 1024**2:
                 return video_path
 
-        if self.remux_to_mp4 or self.recorder.live.room_info.area_name=='聊天电台':
+        if self.remux_to_mp4 or self.recorder.live.room_info.area_name == '聊天电台':
             self._status = PostprocessorStatus.REMUXING
             result_path, remuxing_result = await self._remux_video_to_mp4(video_path)
             if not self._debug:

@@ -71,13 +71,10 @@ class StreamParamHolder:
         self._use_alternative_stream = value
 
     def fall_back_quality(self, qn) -> None:
-        if qn == 10000:
+        if qn == 150 or qn == 10000:
             self._real_quality_number = 250
-        elif qn == 250:
-            self._real_quality_number = 150
         else:
             self._real_quality_number = 10000
-        self._quality_number = self._real_quality_number
         return self._real_quality_number
 
     def rotate_api_platform(self) -> None:
