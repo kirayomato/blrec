@@ -156,6 +156,26 @@ class Postprocessor(
         video_path = await self._queue.get()
         self._completed_files.append(video_path)
 
+        rec = self.recorder._stream_recorder
+        ts0 = 0
+        try:
+            if rec.stream_format == 'fmp4':
+                ts0 = rec._impl._segment_dumper.ts0
+            else:
+                ts0 = rec._impl._dumper.ts0
+            self._logger.info(
+                f'{video_path}, timestamp:{datetime.fromtimestamp(ts0)}')
+        except BaseException as e:
+            self._logger.error(f'{video_path}, get ts0 failed:{e}')
+            try:
+                if rec.stream_format == 'fmp4':
+                    ts0 = rec._impl._segment_dumper.timestamp
+                else:
+                    ts0 = rec._impl._dumper.timestamp
+            except BaseException as e:
+                self._logger.error(
+                    f'{video_path}, get timestamp failed:{e}')
+
         async with self._worker_semaphore:
             self._logger.debug(f'Postprocessing... {video_path}')
             await self._wait_for_metadata_file(video_path)
@@ -178,28 +198,9 @@ class Postprocessor(
                 submit_exception(exc)
             finally:
                 file_name = os.path.splitext(video_path)[0]
-                rec = self.recorder._stream_recorder
-                ts0 = 0
-                try:
-                    if rec.stream_format == 'fmp4':
-                        ts0 = rec._impl._segment_dumper.ts0
-                    else:
-                        ts0 = rec._impl._dumper.ts0
-                    self._logger.info(
-                        f'{video_path}, timestamp:{datetime.fromtimestamp(ts0)}')
-                except BaseException as e:
-                    self._logger.error(f'{video_path}, get ts0 failed:{e}')
-                    try:
-                        if rec.stream_format == 'fmp4':
-                            ts0 = rec._impl._segment_dumper.timestamp
-                        else:
-                            ts0 = rec._impl._dumper.timestamp
-                    except BaseException as e:
-                        self._logger.error(
-                            f'{video_path}, get timestamp failed:{e}')
+                path0 = "Unknown"
                 if ts0:
                     try:
-                        path0 = "Unknown"
                         pp = PathProvider(
                             self.recorder.live,
                             self.recorder.out_dir,
