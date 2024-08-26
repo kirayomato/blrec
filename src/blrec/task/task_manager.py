@@ -317,6 +317,7 @@ class RecordTaskManager:
         task.record_super_chat = settings.record_super_chat
         task.save_raw_danmaku = settings.save_raw_danmaku
 
+
     def apply_task_recorder_settings(
         self, room_id: int, settings: RecorderSettings
     ) -> None:
@@ -330,6 +331,7 @@ class RecordTaskManager:
         task.buffer_size = settings.buffer_size
         task.save_cover = settings.save_cover
         task.cover_save_strategy = settings.cover_save_strategy
+        task.danmaku_only = settings.danmaku_only
 
     def apply_task_postprocessing_settings(
         self, room_id: int, settings: PostprocessingSettings
