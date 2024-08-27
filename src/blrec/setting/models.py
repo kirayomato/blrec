@@ -168,7 +168,6 @@ class RecorderOptions(BaseModel):
     ]
     save_cover: Optional[bool]
     cover_save_strategy: Optional[CoverSaveStrategy]
-    danmaku_only: Optional[bool]
 
     @validator('fmp4_stream_timeout')
     def _validate_fmp4_stream_timeout(cls, v: Optional[int]) -> Optional[int]:
@@ -204,7 +203,6 @@ class RecorderSettings(RecorderOptions):
     ] = 8192
     save_cover: bool = False
     cover_save_strategy: CoverSaveStrategy = CoverSaveStrategy.DEFAULT
-    danmaku_only: bool = False
 
 
 class PostprocessingOptions(BaseModel):

@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 from datetime import datetime
 from typing import Iterator, Optional
+import os
 
 import humanize
 from loguru import logger
@@ -101,7 +102,6 @@ class Recorder(
         save_cover: bool = False,
         cover_save_strategy: CoverSaveStrategy = CoverSaveStrategy.DEFAULT,
         save_raw_danmaku: bool = False,
-            danmaku_only: bool = False,
     ) -> None:
         super().__init__()
         self._logger_context = {'room_id': live.room_id}
@@ -111,7 +111,10 @@ class Recorder(
         self._danmaku_client = danmaku_client
         self._live_monitor = live_monitor
         self.save_raw_danmaku = save_raw_danmaku
-        self.danmaku_only = danmaku_only
+        if os.environ['BLREC_IPV4_DANMAKU_ONLY']:
+            self.danmaku_only = True
+        else:
+            self.danmaku_only = False
         self._recording: bool = False
         self._stream_available: bool = False
 
@@ -383,8 +386,7 @@ class Recorder(
     async def on_live_began(self, live: Live) -> None:
         self._logger.info('The live has began')
         self._print_live_info()
-        if not self.danmaku_only:
-            await self._start_recording()
+        await self._start_recording()
 
     async def on_live_ended(self, live: Live) -> None:
         self._logger.info('The live has ended')
@@ -399,12 +401,12 @@ class Recorder(
         self._logger.debug('The live stream becomes available')
         self._stream_available = True
         self._stream_recorder.stream_available_time = await live.get_timestamp()
-        await self._stream_recorder.start()
+        if not self.danmaku_only:
+            await self._stream_recorder.start()
 
     async def on_live_stream_reset(self, live: Live) -> None:
         self._logger.warning('The live stream has been reset')
-        if not self._recording:
-            await self._start_recording()
+        await self._start_recording()
 
     async def on_room_changed(self, room_info: RoomInfo) -> None:
         self._print_changed_room_info(room_info)
@@ -460,15 +462,12 @@ class Recorder(
         self._logger.debug('Stopped recorder')
 
     async def _start_dumping(self) -> None:
-        pp = PathProvider(
-            self.live,
-            self.out_dir,
-            self.path_template)
+        pp = PathProvider(self.live, self.out_dir, self.path_template)
+        self._danmaku_dumper.enable()
+        self._danmaku_receiver.start()
         while True:
             date = datetime.now()
             path0, timestamp = pp(date.timestamp())
-            self._danmaku_dumper.enable()
-            self._danmaku_receiver.start()
             await self._danmaku_dumper.on_video_file_created(path0, timestamp)
             t0 = datetime(date.year, date.month, date.day + 1)
             t1 = (t0 - date).total_seconds()
@@ -476,6 +475,8 @@ class Recorder(
             await self._danmaku_dumper._stop_dumping()
 
     async def _start_recording(self) -> None:
+        if self.danmaku_only:
+            return
         if self._recording:
             return
         self._recording = True

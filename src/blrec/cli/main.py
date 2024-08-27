@@ -52,6 +52,7 @@ def cli_main(
     key_file: Optional[str] = typer.Option(None, help='SSL key file'),
     cert_file: Optional[str] = typer.Option(None, help='SSL certificate file'),
     api_key: Optional[str] = typer.Option(None, help='web api key'),
+    danmaku_only: bool = typer.Option(None, help='use danmaku only mode'),
 ) -> None:
     """Bilibili live streaming recorder"""
     if config is not None:
@@ -64,7 +65,10 @@ def cli_main(
         os.environ['BLREC_LOG_DIR'] = log_dir
     if ipv4 is not None:
         os.environ['BLREC_IPV4'] = '1'
-
+    if danmaku_only is not None:
+        os.environ['BLREC_IPV4_DANMAKU_ONLY'] = '1'
+    else:
+        os.environ['BLREC_IPV4_DANMAKU_ONLY'] = ''
     if not sys.stderr.isatty():
         progress = False
     if progress:
