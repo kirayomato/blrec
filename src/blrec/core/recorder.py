@@ -383,14 +383,16 @@ class Recorder(
     async def on_live_began(self, live: Live) -> None:
         self._logger.info('The live has began')
         self._print_live_info()
-        await self._start_recording()
+        if not self.danmaku_only:
+            await self._start_recording()
 
     async def on_live_ended(self, live: Live) -> None:
         self._logger.info('The live has ended')
         await asyncio.sleep(3)
         self._stream_available = False
         self._stream_recorder.stream_available_time = None
-        await self._stop_recording()
+        if not self.danmaku_only:
+            await self._stop_recording()
         self._print_waiting_message()
 
     async def on_live_stream_available(self, live: Live) -> None:
@@ -441,12 +443,11 @@ class Recorder(
         self._logger.debug('Started recorder')
         self._print_live_info()
 
-        if self._live.is_living():
+        if self.danmaku_only:
+            asyncio.create_task(self._start_dumping())
+        elif self._live.is_living():
             self._stream_available = True
             await self._start_recording()
-
-        elif self.danmaku_only:
-            asyncio.create_task(self._start_dumping())
         else:
             self._print_waiting_message()
 
