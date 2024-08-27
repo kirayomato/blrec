@@ -50,15 +50,16 @@ class SegmentDumper:
         return self._dump(source)
 
     def _open_file(self) -> None:
-        path, timestamp = self._path_provider()
+        path, self.timestamp = self._path_provider()
         self._path = str(PurePath(path).with_suffix('.m4s'))
         self._file = open(self._path, 'wb')  # type: ignore
         logger.debug(f'Opened file: {self._path}')
-        self._file_opened.on_next((self._path, timestamp))
+        self._file_opened.on_next((self._path, self.timestamp))
 
     def _close_file(self) -> None:
         if self._file is not None and not self._file.closed:
             self._file.close()
+            self.ts0 = self.timestamp
             logger.debug(f'Closed file: {self._path}')
             self._file_closed.on_next(self._path)
 

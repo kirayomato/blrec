@@ -4,6 +4,7 @@ from abc import ABC
 from datetime import datetime
 from typing import Any, Dict, Final, List, Mapping, Optional
 from urllib.parse import urlencode
+from .wbi import encWbi, getWbiKeys
 
 import aiohttp
 from loguru import logger
@@ -22,6 +23,7 @@ BASE_HEADERS: Final = {
     'Cache-Control': 'no-cache',
     'Connection': 'keep-alive',
     'Origin': 'https://live.bilibili.com',
+    'Referer': 'https://live.bilibili.com',
     'Pragma': 'no-cache',
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',  # noqa
 }
@@ -39,11 +41,13 @@ class BaseApi(ABC):
 
         self.base_api_urls: List[str] = ['https://api.bilibili.com']
         self.base_live_api_urls: List[str] = ['https://api.live.bilibili.com']
-        self.base_play_info_api_urls: List[str] = ['https://api.live.bilibili.com']
+        self.base_play_info_api_urls: List[str] = [
+            'https://api.live.bilibili.com']
 
         self._session = session
         self.headers = headers or {}
         self.timeout = 10
+        self.img_key, self.sub_key = getWbiKeys()
 
     @property
     def headers(self) -> Dict[str, str]:
@@ -57,7 +61,8 @@ class BaseApi(ABC):
     def _check_response(json_res: JsonResponse) -> None:
         if json_res['code'] != 0:
             raise ApiRequestError(
-                json_res['code'], json_res.get('message') or json_res.get('msg') or ''
+                json_res['code'], json_res.get(
+                    'message') or json_res.get('msg') or ''
             )
 
     @retry(reraise=True, stop=stop_after_delay(5), wait=wait_exponential(0.1))
@@ -89,7 +94,8 @@ class BaseApi(ABC):
                 return await self._get_json_res(url, *args, **kwds)
             except Exception as exc:
                 exception = exc
-                self._logger.trace('Failed to get json from {}: {}', url, repr(exc))
+                self._logger.trace(
+                    'Failed to get json from {}: {}', url, repr(exc))
         else:
             assert exception is not None
             raise exception
@@ -121,8 +127,8 @@ class BaseApi(ABC):
 
 class AppApi(BaseApi):
     # taken from https://github.com/SocialSisterYi/bilibili-API-collect/blob/master/other/API_sign.md  # noqa
-    _appkey = '1d8b6e7d45233436'
-    _appsec = '560c52ccd288fed045859ed18bffd973'
+    _appkey = '783bbb7264451d82'
+    _appsec = '2653583c8873dea268ab9386918b1d65'
 
     _app_headers = {
         'User-Agent': 'Mozilla/5.0 BiliDroid/6.64.0 (bbcallen@gmail.com) os/android model/Unknown mobi_app/android build/6640400 channel/bili innerVer/6640400 osVer/6.0.1 network/2',  # noqa
@@ -285,10 +291,10 @@ class WebApi(BaseApi):
         return json_res['data']['timestamp']
 
     async def get_user_info(self, uid: int) -> ResponseData:
-        # FIXME: "code": -352, "message": "风控校验失败",
         path = '/x/space/wbi/acc/info'
         params = {'mid': uid}
-        json_res = await self._get_json(self.base_api_urls, path, params=params)
+        signed_params = encWbi(params, self.img_key, self.sub_key)
+        json_res = await self._get_json(self.base_api_urls, path, params=signed_params)
         return json_res['data']
 
     async def get_danmu_info(self, room_id: int) -> ResponseData:

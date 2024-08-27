@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import os
 from contextlib import suppress
+from datetime import datetime
 from pathlib import PurePath
 from typing import Any, Awaitable, Dict, Final, Iterator, List, Optional, Tuple, Union
 
@@ -13,6 +14,7 @@ from blrec.logging.context import async_task_with_logger_context
 
 from ..bili.live import Live
 from ..core import Recorder, RecorderEventListener
+from ..core.path_provider import PathProvider
 from ..event.event_emitter import EventEmitter, EventListener
 from ..exception import exception_callback, submit_exception
 from ..flv.helpers import is_valid_flv_file
@@ -151,14 +153,32 @@ class Postprocessor(
         self._status = PostprocessorStatus.WAITING
         self._postprocessing_path = None
         self._postprocessing_progress = None
-
         video_path = await self._queue.get()
         self._completed_files.append(video_path)
+
+        rec = self.recorder._stream_recorder
+        ts0 = 0
+        try:
+            if rec.stream_format == 'fmp4':
+                ts0 = rec._impl._segment_dumper.ts0
+            else:
+                ts0 = rec._impl._dumper.ts0
+            self._logger.info(
+                f'{video_path}, timestamp:{datetime.fromtimestamp(ts0)}')
+        except BaseException as e:
+            self._logger.error(f'{video_path}, get ts0 failed:{e}')
+            try:
+                if rec.stream_format == 'fmp4':
+                    ts0 = rec._impl._segment_dumper.timestamp
+                else:
+                    ts0 = rec._impl._dumper.timestamp
+            except BaseException as e:
+                self._logger.error(
+                    f'{video_path}, get timestamp failed:{e}')
 
         async with self._worker_semaphore:
             self._logger.debug(f'Postprocessing... {video_path}')
             await self._wait_for_metadata_file(video_path)
-
             try:
                 _, ext = os.path.splitext(video_path)
                 if ext == '.flv':
@@ -177,6 +197,43 @@ class Postprocessor(
             except Exception as exc:
                 submit_exception(exc)
             finally:
+                file_name = os.path.splitext(video_path)[0]
+                path0 = "Unknown"
+                if ts0:
+                    try:
+                        pp = PathProvider(
+                            self.recorder.live,
+                            self.recorder.out_dir,
+                            self.recorder.path_template)
+                        path0, timestamp = pp(ts0)
+                        if rec.stream_format == 'fmp4':
+                            path0 = str(PurePath(path0).with_suffix('.m4s'))
+                        if self.remux_to_mp4:
+                            path0 = str(PurePath(path0).with_suffix('.mp4'))
+                            video_path = str(
+                                PurePath(video_path).with_suffix('.mp4'))
+                        if video_path != path0:
+                            os.rename(video_path, path0)
+                            self._logger.info(
+                                f'Rename {video_path} to {path0}')
+                            os.rename(
+                                file_name + '.xml',
+                                os.path.splitext(path0)[0] + '.xml')
+                            self._logger.info(
+                                f"Rename {file_name + '.xml'} to {os.path.splitext(path0)[0] + '.xml'}")
+                        else:
+                            self._logger.info(f'Skip Rename for {video_path}')
+                    except Exception as e:
+                        self._logger.error(
+                            f"Failed to Rename for {video_path} to {path0}: {repr(e)}")
+                        with open(file_name + '.txt', 'w', encoding='utf-8') as f:
+                            if video_path != path0:
+                                f.write(f'Correct name:{path0}')
+                            else:
+                                f.write(f'Obtain name failed')
+                else:
+                    self._logger.error(
+                        f"Failed to Rename for {video_path}, can't get file timestamp")
                 self._queue.task_done()
 
     async def _process_flv(self, video_path: str) -> str:
@@ -185,7 +242,7 @@ class Postprocessor(
             if os.path.getsize(video_path) < 1024**2:
                 return video_path
 
-        if self.remux_to_mp4:
+        if self.remux_to_mp4 or self.recorder.live.room_info.area_name == '聊天电台':
             self._status = PostprocessorStatus.REMUXING
             result_path, remuxing_result = await self._remux_video_to_mp4(video_path)
             if not self._debug:
@@ -209,7 +266,8 @@ class Postprocessor(
         self._status = PostprocessorStatus.REMUXING
         result_path, remuxing_result = await self._remux_video_to_mp4(video_path)
 
-        if not self._debug and self._should_delete_source_files(remuxing_result):
+        if not self._debug and self._should_delete_source_files(
+                remuxing_result):
             await discard_file(video_path)
             await discard_file(playlist_path(video_path))
             await discard_file(record_metadata_path(video_path), 'DEBUG')
@@ -223,7 +281,8 @@ class Postprocessor(
             try:
                 metadata = await get_extra_metadata(path)
             except Exception as e:
-                self._logger.warning(f'Failed to get extra metadata: {repr(e)}')
+                self._logger.warning(
+                    f'Failed to get extra metadata: {repr(e)}')
                 self._logger.info(f"Analysing metadata for '{path}' ...")
                 await self._analyse_metadata(path)
                 metadata = await get_extra_metadata(path)
@@ -236,7 +295,8 @@ class Postprocessor(
                     metadata.update(new_metadata)
             await self._inject_metadata(path, metadata)
         except Exception as e:
-            self._logger.error(f"Failed to inject metadata for '{path}': {repr(e)}")
+            self._logger.error(
+                f"Failed to inject metadata for '{path}': {repr(e)}")
             submit_exception(e)
         else:
             self._logger.info(f"Successfully injected metadata for '{path}'")
@@ -266,7 +326,8 @@ class Postprocessor(
             self._logger.warning('Remuxing done, but ran into problems.')
             result_path = out_path
         elif remux_result.is_successful():
-            self._logger.info(f"Successfully remuxed '{in_path}' to '{out_path}'")
+            self._logger.info(
+                f"Successfully remuxed '{in_path}' to '{out_path}'")
             result_path = out_path
         else:
             pass
@@ -293,7 +354,8 @@ class Postprocessor(
 
         return future
 
-    def _inject_metadata(self, path: str, metadata: Dict[str, Any]) -> Awaitable[None]:
+    def _inject_metadata(
+            self, path: str, metadata: Dict[str, Any]) -> Awaitable[None]:
         future: asyncio.Future[None] = asyncio.Future()
         self._postprocessing_path = path
 
@@ -309,7 +371,6 @@ class Postprocessor(
             scheduler=self._scheduler,
         )
         future.add_done_callback(lambda f: subscription.dispose())
-
         return future
 
     def _remux_video(
@@ -343,7 +404,8 @@ class Postprocessor(
         loop = asyncio.get_running_loop()
         return await loop.run_in_executor(None, is_valid_flv_file, video_path)
 
-    def _should_delete_source_files(self, remux_result: RemuxingResult) -> bool:
+    def _should_delete_source_files(
+            self, remux_result: RemuxingResult) -> bool:
         if self.delete_source == DeleteStrategy.AUTO:
             if not remux_result.is_failed():
                 return True

@@ -410,6 +410,14 @@ class RecordTask:
         return self._recorder.stream_profile
 
     @property
+    def danmaku_only(self) -> Optional[bool]:
+        return self._recorder.danmaku_only
+
+    @danmaku_only.setter
+    def danmaku_only(self, value: int) -> None:
+        self._recorder.danmaku_only = value
+
+    @property
     def remux_to_mp4(self) -> bool:
         return self._postprocessor.remux_to_mp4
 

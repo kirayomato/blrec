@@ -75,12 +75,15 @@ class SpaceReclaimer(SpaceEventListener, SwitchableMixin):
 
     async def _free_space_from_records(self, size: int) -> bool:
         logger.info('Free space from records ...')
-        ts = datetime.now().timestamp() - self.rec_ttl
-        for path in await self._get_record_file_paths(ts):
-            await delete_file(path)
-            if is_space_enough(self.path, size):
-                return True
-        return False
+        ttl = self.rec_ttl
+        while not is_space_enough(self.path, size):
+            ts = datetime.now().timestamp() - ttl
+            for path in await self._get_record_file_paths(ts):
+                await delete_file(path)
+                if is_space_enough(self.path, size):
+                    break
+            ttl /= 2
+        return True
 
     @retry(
         retry=retry_if_exception_type(OSError),
@@ -92,7 +95,8 @@ class SpaceReclaimer(SpaceEventListener, SwitchableMixin):
         paths: Iterable[Path]
         paths = map(lambda p: Path(p), glob.iglob(glob_path, recursive=True))
         paths = filter(lambda p: p.suffix in self._SUFFIX_SET, paths)
-        paths = filter(lambda p: p.stat().st_mtime < ts > p.stat().st_atime, paths)
+        paths = filter(lambda p: p.stat().st_mtime <
+                       ts > p.stat().st_atime, paths)
         func = partial(
             sorted, paths, key=lambda p: (p.stat().st_mtime, p.stat().st_atime)
         )

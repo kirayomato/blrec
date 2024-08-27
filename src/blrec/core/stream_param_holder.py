@@ -70,8 +70,12 @@ class StreamParamHolder:
     def use_alternative_stream(self, value: bool) -> None:
         self._use_alternative_stream = value
 
-    def fall_back_quality(self) -> None:
-        self._real_quality_number = 10000
+    def fall_back_quality(self, qn) -> None:
+        if qn == 150 or qn == 10000:
+            self._real_quality_number = 250
+        else:
+            self._real_quality_number = 10000
+        return self._real_quality_number
 
     def rotate_api_platform(self) -> None:
         if self._api_platform == 'android':

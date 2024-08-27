@@ -168,6 +168,7 @@ class RecorderOptions(BaseModel):
     ]
     save_cover: Optional[bool]
     cover_save_strategy: Optional[CoverSaveStrategy]
+    danmaku_only: Optional[bool]
 
     @validator('fmp4_stream_timeout')
     def _validate_fmp4_stream_timeout(cls, v: Optional[int]) -> Optional[int]:
@@ -203,6 +204,7 @@ class RecorderSettings(RecorderOptions):
     ] = 8192
     save_cover: bool = False
     cover_save_strategy: CoverSaveStrategy = CoverSaveStrategy.DEFAULT
+    danmaku_only: bool = False
 
 
 class PostprocessingOptions(BaseModel):
@@ -351,7 +353,8 @@ class SpaceSettings(BaseModel):
 
     @validator('space_threshold')
     def _validate_threshold(cls, value: int) -> int:
-        allowed_values = frozenset(1024**3 * i for i in (1, 3, 5, 10, 20))
+        allowed_values = frozenset(1024**3 *
+                                   i for i in (1, 3, 5, 10, 20, 50, 100))
         cls._validate_with_collection(value, allowed_values)
         return value
 

@@ -42,7 +42,7 @@ from .models import (
 
 __all__ = (
     'EventCenter',
-    'EventEmitter', 
+    'EventEmitter',
     'EventListener',
 
     'BaseEvent',

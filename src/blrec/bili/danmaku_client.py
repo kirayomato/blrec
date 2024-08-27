@@ -141,6 +141,12 @@ class DanmakuClient(EventEmitter[DanmakuListener], AsyncStoppableMixin):
             await self._handle_auth_reply(reply)
         except Exception:
             self._host_index += 1
+            # self._logger.warning('Trying Connecting without cookies...')
+            # t = self.headers
+            # t['Cookie'] = ""
+            # self.headers['Cookie'] = t
+            # self.webapi.headers=t
+            # self.appapi.headers= t
             if self._host_index >= len(self._danmu_info['host_list']):
                 self._host_index = 0
                 # self._rotate_api_platform()  # XXX: use web api only
