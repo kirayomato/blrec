@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Iterator, Optional
 import os
 
@@ -469,7 +469,7 @@ class Recorder(
             date = datetime.now()
             path0, timestamp = pp(date.timestamp())
             await self._danmaku_dumper.on_video_file_created(path0, timestamp)
-            t0 = datetime(date.year, date.month, date.day + 1)
+            t0 = datetime(date.year, date.month, date.day) + timedelta(days=1)
             t1 = (t0 - date).total_seconds()
             await asyncio.sleep(t1)
             await self._danmaku_dumper._stop_dumping()
