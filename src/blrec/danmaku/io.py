@@ -9,6 +9,7 @@ from typing import Any, AsyncIterator, Final, List
 import aiofiles
 import attr
 from lxml import etree
+from time import time
 
 from .models import (
     Danmu,
@@ -104,6 +105,15 @@ class DanmakuWriter:
 
     def __init__(self, path: str):
         self._path = path
+        self._file = None
+        self.last = 0
+
+    async def _write(self, s: str):
+        await self._file.write(s)
+        if time() - self.last > 60:
+            await self._file.close()
+            self._file = await aiofiles.open(self._path, 'at', encoding='utf8')
+            self.last = time()
 
     async def __aenter__(self) -> DanmakuWriter:
         await self.init()
@@ -117,25 +127,25 @@ class DanmakuWriter:
         await self._file.write(self._XML_HEAD)
 
     async def write_metadata(self, metadata: Metadata) -> None:
-        await self._file.write(self._serialize_metadata(metadata))
+        await self._write(self._serialize_metadata(metadata))
 
     async def write_danmu(self, danmu: Danmu) -> None:
-        await self._file.write(self._serialize_danmu(danmu))
+        await self._write(self._serialize_danmu(danmu))
 
     async def write_user_toast(self, toast: UserToast) -> None:
-        await self._file.write(self._serialize_user_toast(toast))
+        await self._write(self._serialize_user_toast(toast))
 
     async def write_gift_send_record(self, record: GiftSendRecord) -> None:
-        await self._file.write(self._serialize_gift_send_record(record))
+        await self._write(self._serialize_gift_send_record(record))
 
     async def write_guard_buy_record(self, record: GuardBuyRecord) -> None:
-        await self._file.write(self._serialize_guard_buy_record(record))
+        await self._write(self._serialize_guard_buy_record(record))
 
     async def write_super_chat_record(self, record: SuperChatRecord) -> None:
-        await self._file.write(self._serialize_super_chat_record(record))
+        await self._write(self._serialize_super_chat_record(record))
 
     async def complete(self) -> None:
-        await self._file.write('</i>')
+        await self._write('</i>')
         await self._file.close()
 
     def _serialize_metadata(self, metadata: Metadata) -> str:
