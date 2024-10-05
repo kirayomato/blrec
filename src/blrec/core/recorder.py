@@ -462,13 +462,14 @@ class Recorder(
         self._logger.debug('Stopped recorder')
 
     async def _start_dumping(self) -> None:
-        pp = PathProvider(self.live, self.out_dir, self.path_template)
         self._danmaku_dumper.enable()
         self._danmaku_receiver.start()
         while True:
             date = datetime.now()
-            path0, timestamp = pp(date.timestamp())
-            await self._danmaku_dumper.on_video_file_created(path0, timestamp)
+            path, timestamp = PathProvider(
+                self.live, self.out_dir, self.path_template)(
+                date.timestamp())
+            await self._danmaku_dumper.on_video_file_created(path, timestamp)
             t0 = datetime(date.year, date.month, date.day) + timedelta(days=1)
             t1 = (t0 - date).total_seconds()
             await asyncio.sleep(t1)
@@ -480,7 +481,6 @@ class Recorder(
         if self._recording:
             return
         self._recording = True
-
         if self.save_raw_danmaku:
             self._raw_danmaku_dumper.enable()
             self._raw_danmaku_receiver.start()
