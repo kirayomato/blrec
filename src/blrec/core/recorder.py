@@ -393,7 +393,10 @@ class Recorder(
         await asyncio.sleep(3)
         self._stream_available = False
         self._stream_recorder.stream_available_time = None
-        if not self.danmaku_only:
+        if self.danmaku_only:
+            await self._danmaku_dumper._stop_dumping()
+            await self._start_dumper()
+        else:
             await self._stop_recording()
         self._print_waiting_message()
 
@@ -461,22 +464,29 @@ class Recorder(
         self._cover_downloader.remove_listener(self)
         self._logger.debug('Stopped recorder')
 
+    async def _start_dumper(self) -> None:
+        date = datetime.now()
+        path, timestamp = PathProvider(
+            self.live, self.out_dir, self.path_template)(
+            date.timestamp())
+        await self._danmaku_dumper.on_video_file_created(path, timestamp)
+
     async def _start_dumping(self) -> None:
         self._danmaku_dumper.enable()
         self._danmaku_receiver.start()
         while True:
+            await self._start_dumper()
             date = datetime.now()
-            path, timestamp = PathProvider(
-                self.live, self.out_dir, self.path_template)(
-                date.timestamp())
-            await self._danmaku_dumper.on_video_file_created(path, timestamp)
             t0 = datetime(date.year, date.month, date.day) + timedelta(days=1)
             t1 = (t0 - date).total_seconds()
             await asyncio.sleep(t1)
+            logger.info('Sleep Over')
             await self._danmaku_dumper._stop_dumping()
 
     async def _start_recording(self) -> None:
         if self.danmaku_only:
+            await self._danmaku_dumper._stop_dumping()
+            await self._start_dumper()
             return
         if self._recording:
             return
