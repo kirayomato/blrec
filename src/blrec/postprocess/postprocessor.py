@@ -12,6 +12,7 @@ from reactivex.scheduler import ThreadPoolScheduler
 
 from blrec.logging.context import async_task_with_logger_context
 
+import shutil
 from ..bili.live import Live
 from ..core import Recorder, RecorderEventListener
 from ..core.path_provider import PathProvider
@@ -237,11 +238,17 @@ class Postprocessor(
                 self._queue.task_done()
 
     async def _process_flv(self, video_path: str) -> str:
+        video_size = os.path.getsize(video_path)
         if not await self._is_vaild_flv_file(video_path):
             self._logger.warning(f'The flv file may be invalid: {video_path}')
-            if os.path.getsize(video_path) < 1024**2:
+            if video_size < 1024**2:
                 return video_path
-
+        disk = shutil.disk_usage(video_path).free / 1024**3
+        video_size /= 1024**3
+        if disk < video_size + 1:
+            self._logger.warning(
+                f'Space not enough: {disk:.2f}GB < {video_size+1:.2f}GB, pass post process')
+            return video_path
         if self.remux_to_mp4 or self.recorder.live.room_info.area_name == '聊天电台':
             self._status = PostprocessorStatus.REMUXING
             result_path, remuxing_result = await self._remux_video_to_mp4(video_path)
