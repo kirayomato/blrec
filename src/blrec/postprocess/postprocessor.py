@@ -12,6 +12,7 @@ from reactivex.scheduler import ThreadPoolScheduler
 
 from blrec.logging.context import async_task_with_logger_context
 
+import shutil
 from ..bili.live import Live
 from ..core import Recorder, RecorderEventListener
 from ..core.path_provider import PathProvider
@@ -197,7 +198,7 @@ class Postprocessor(
             except Exception as exc:
                 submit_exception(exc)
             finally:
-                file_name = os.path.splitext(video_path)[0]
+                file_name = os.path.splitext(result_path)[0]
                 path0 = "Unknown"
                 if ts0:
                     try:
@@ -206,42 +207,44 @@ class Postprocessor(
                             self.recorder.out_dir,
                             self.recorder.path_template)
                         path0, timestamp = pp(ts0)
-                        if rec.stream_format == 'fmp4':
-                            path0 = str(PurePath(path0).with_suffix('.m4s'))
-                        if self.remux_to_mp4:
-                            path0 = str(PurePath(path0).with_suffix('.mp4'))
-                            video_path = str(
-                                PurePath(video_path).with_suffix('.mp4'))
-                        if video_path != path0:
-                            os.rename(video_path, path0)
+                        fmat = PurePath(result_path).suffix
+                        path0 = str(PurePath(path0).with_suffix(fmat))
+                        if result_path != path0:
+                            os.rename(result_path, path0)
                             self._logger.info(
-                                f'Rename {video_path} to {path0}')
+                                f'Rename {result_path} to {path0}')
                             os.rename(
                                 file_name + '.xml',
                                 os.path.splitext(path0)[0] + '.xml')
                             self._logger.info(
                                 f"Rename {file_name + '.xml'} to {os.path.splitext(path0)[0] + '.xml'}")
                         else:
-                            self._logger.info(f'Skip Rename for {video_path}')
+                            self._logger.info(f'Skip Rename for {result_path}')
                     except Exception as e:
                         self._logger.error(
-                            f"Failed to Rename for {video_path} to {path0}: {repr(e)}")
+                            f"Failed to Rename for {result_path} to {path0}: {repr(e)}")
                         with open(file_name + '.txt', 'w', encoding='utf-8') as f:
-                            if video_path != path0:
+                            if result_path != path0:
                                 f.write(f'Correct name:{path0}')
                             else:
                                 f.write(f'Obtain name failed')
                 else:
                     self._logger.error(
-                        f"Failed to Rename for {video_path}, can't get file timestamp")
+                        f"Failed to Rename for {result_path}, can't get file timestamp")
                 self._queue.task_done()
 
     async def _process_flv(self, video_path: str) -> str:
+        video_size = os.path.getsize(video_path)
         if not await self._is_vaild_flv_file(video_path):
             self._logger.warning(f'The flv file may be invalid: {video_path}')
-            if os.path.getsize(video_path) < 1024**2:
+            if video_size < 1024**2:
                 return video_path
-
+        disk = shutil.disk_usage(video_path).free / 1024**3
+        video_size /= 1024**3
+        if disk < video_size + 1:
+            self._logger.warning(
+                f'Space not enough: {disk:.2f}GB < {video_size+1:.2f}GB, pass post process')
+            return video_path
         if self.remux_to_mp4 or self.recorder.live.room_info.area_name == '聊天电台':
             self._status = PostprocessorStatus.REMUXING
             result_path, remuxing_result = await self._remux_video_to_mp4(video_path)
