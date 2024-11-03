@@ -21,6 +21,7 @@ from blrec.flv.operators import StreamProfile
 from blrec.postprocess import DeleteStrategy, Postprocessor, PostprocessorStatus
 from blrec.postprocess.remux import RemuxingProgress
 from blrec.setting.typing import RecordingMode
+from blrec.bili.live_monitor import LiveEventListener
 
 from .models import (
     DanmakuFileDetail,
@@ -34,7 +35,7 @@ from .models import (
 __all__ = ('RecordTask',)
 
 
-class RecordTask:
+class RecordTask(LiveEventListener):
     def __init__(
         self,
         room_id: int,
@@ -63,6 +64,7 @@ class RecordTask:
         self._ready = False
         self._monitor_enabled: bool = False
         self._recorder_enabled: bool = False
+        self.temp_start: bool = 0
 
     @property
     def ready(self) -> bool:
@@ -456,12 +458,14 @@ class RecordTask:
 
         await self._danmaku_client.start()
         self._live_monitor.enable()
+        self._live_monitor.add_listener(self)
 
     async def disable_monitor(self) -> None:
         if not self._monitor_enabled:
             return
         self._monitor_enabled = False
 
+        self._live_monitor.remove_listener(self)
         self._live_monitor.disable()
         await self._danmaku_client.stop()
 
@@ -511,6 +515,20 @@ class RecordTask:
 
     def _setup_live_monitor(self) -> None:
         self._live_monitor = LiveMonitor(self._danmaku_client, self._live)
+
+    async def on_live_began(self, live: Live):
+        if self._live.room_info.area_name == '聊天电台':
+            await self.enable_recorder()
+            self.temp_start = 1
+
+    async def on_live_stream_reset(self, live: Live):
+        if not self.temp_start:
+            await self.on_live_began(live)
+
+    async def on_live_ended(self, live: Live):
+        if self.temp_start:
+            await self.disable_recorder()
+            self.temp_start = 0
 
     def _setup_live_event_submitter(self) -> None:
         self._live_event_submitter = LiveEventSubmitter(self._live_monitor)
