@@ -22,6 +22,7 @@ from blrec.postprocess import DeleteStrategy, Postprocessor, PostprocessorStatus
 from blrec.postprocess.remux import RemuxingProgress
 from blrec.setting.typing import RecordingMode
 from blrec.bili.live_monitor import LiveEventListener
+from loguru import logger
 
 from .models import (
     DanmakuFileDetail,
@@ -65,6 +66,8 @@ class RecordTask(LiveEventListener):
         self._monitor_enabled: bool = False
         self._recorder_enabled: bool = False
         self.temp_start: bool = 0
+        self._logger_context = {'room_id': self._live.room_id}
+        self._logger = logger.bind(**self._logger_context)
 
     @property
     def ready(self) -> bool:
@@ -518,6 +521,7 @@ class RecordTask(LiveEventListener):
 
     async def on_live_began(self, live: Live):
         if self._live.room_info.area_name == '聊天电台':
+            self._logger.info('Detected 聊天电台, Start temporarily recording')
             await self.enable_recorder()
             self.temp_start = 1
 
@@ -527,6 +531,7 @@ class RecordTask(LiveEventListener):
 
     async def on_live_ended(self, live: Live):
         if self.temp_start:
+            self._logger.info('End temporarily recording')
             await self.disable_recorder()
             self.temp_start = 0
 
