@@ -241,9 +241,9 @@ class Postprocessor(
                 return video_path
         disk = shutil.disk_usage(video_path).free / 1024**3
         video_size /= 1024**3
-        if disk < video_size + 1:
+        if disk < video_size*1.2:
             self._logger.warning(
-                f'Space not enough: {disk:.2f}GB < {video_size+1:.2f}GB, pass post process')
+                f'Space not enough: {disk:.2f}GB < {video_size*1.2:.2f}GB, pass post process')
             return video_path
         if self.remux_to_mp4 or self._live.room_info.area_name == '聊天电台':
             self._status = PostprocessorStatus.REMUXING
