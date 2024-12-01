@@ -30,6 +30,7 @@ class CodecID(IntEnum):
     ON2_VP6_WITH_ALPHA_CHANNEL = 5
     SCREEN_VIDEO_V2 = 6
     AVC = 7
+    HEVC = 12
 
 
 class AVCPacketType(IntEnum):
