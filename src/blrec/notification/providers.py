@@ -6,7 +6,7 @@ from email.message import EmailMessage
 from http.client import HTTPException
 from typing import Any, Dict, Final, TypedDict, cast
 from urllib.parse import urljoin
-
+from time import time
 import aiohttp
 
 from ..setting.typing import (
@@ -179,12 +179,17 @@ class Pushplus(MessagingProvider):
         super().__init__()
         self.token = token
         self.topic = topic
+        self.last_send = 0
 
     async def send_message(
         self, title: str, content: str, msg_type: MessageType
     ) -> None:
         self._check_parameters()
+
+        if time() - self.last_send < 60:
+            return
         await self._post_message(title, content, msg_type)
+        self.last_send = time()
 
     def _check_parameters(self) -> None:
         if not self.token:
