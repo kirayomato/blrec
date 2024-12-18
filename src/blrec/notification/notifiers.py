@@ -13,8 +13,8 @@ from pkg_resources import resource_string
 from tenacity import (
     AsyncRetrying,
     retry_if_exception,
-    stop_after_delay,
     wait_exponential,
+    stop_after_attempt,
 )
 
 from ..event import (
@@ -264,8 +264,8 @@ class MessageNotifier(Notifier, ABC):
         try:
             async for attempt in AsyncRetrying(
                 reraise=True,
-                stop=stop_after_delay(1000),
-                wait=wait_exponential(multiplier=1, max=3),
+                stop=stop_after_attempt(3),
+                wait=wait_exponential(multiplier=1, max=5),
                 retry=retry_if_exception(lambda e: not isinstance(e, ValueError)),
             ):
                 with attempt:

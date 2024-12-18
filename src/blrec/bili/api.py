@@ -60,7 +60,7 @@ class BaseApi(ABC):
                 json_res['code'], json_res.get('message') or json_res.get('msg') or ''
             )
 
-    @retry(reraise=True, stop=stop_after_delay(5), wait=wait_exponential(0.1))
+    @retry(reraise=True, stop=stop_after_delay(5), wait=wait_exponential(0.5))
     async def _get_json_res(self, *args: Any, **kwds: Any) -> JsonResponse:
         should_check_response = kwds.pop('check_response', True)
         kwds = {'timeout': self.timeout, 'headers': self.headers, **kwds}
