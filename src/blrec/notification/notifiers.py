@@ -2,6 +2,7 @@ import asyncio
 import os
 from abc import ABC, abstractmethod
 from datetime import datetime
+from time import time
 from typing import Final, Optional, Tuple
 
 import attr
@@ -257,11 +258,14 @@ class MessageNotifier(Notifier, ABC):
     async def _send_message_async(
         self, title: str, content: str, msg_type: MessageType
     ) -> None:
+        if time() - self.provider.last_send < 10:
+            return
+        self.provider.last_send = time()
         try:
             async for attempt in AsyncRetrying(
                 reraise=True,
-                stop=stop_after_delay(300),
-                wait=wait_exponential(multiplier=0.1, max=10),
+                stop=stop_after_delay(1000),
+                wait=wait_exponential(multiplier=1, max=3),
                 retry=retry_if_exception(lambda e: not isinstance(e, ValueError)),
             ):
                 with attempt:
