@@ -520,10 +520,10 @@ class RecordTask(LiveEventListener):
         self._live_monitor = LiveMonitor(self._danmaku_client, self._live)
 
     async def on_live_began(self, live: Live):
-        if self._live.room_info.area_name == '聊天电台':
+        if '电台' in self._live.room_info.area_name:
             if self._recorder_enabled or self._recorder.danmaku_only:
                 return
-            self._logger.info('Detected 聊天电台, Start temporarily recording')
+            self._logger.info(f'Detected {self._live.room_info.area_name}, Start temporarily recording')
             await self.enable_recorder()
             self.temp_start = 1
 

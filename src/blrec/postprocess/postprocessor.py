@@ -245,7 +245,7 @@ class Postprocessor(
             self._logger.warning(
                 f'Space not enough: {disk:.2f}GB < {video_size*1.2:.2f}GB, pass post process')
             return video_path
-        if self.remux_to_mp4 or self._live.room_info.area_name == '聊天电台':
+        if self.remux_to_mp4 or '电台' in self._live.room_info.area_name:
             self._status = PostprocessorStatus.REMUXING
             result_path, remuxing_result = await self._remux_video_to_mp4(video_path)
             if not self._debug:

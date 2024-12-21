@@ -111,10 +111,7 @@ class Recorder(
         self._danmaku_client = danmaku_client
         self._live_monitor = live_monitor
         self.save_raw_danmaku = save_raw_danmaku
-        if os.environ['BLREC_IPV4_DANMAKU_ONLY']:
-            self.danmaku_only = True
-        else:
-            self.danmaku_only = False
+        self.danmaku_only = bool(os.environ['BLREC_IPV4_DANMAKU_ONLY'])
         self._recording: bool = False
         self._stream_available: bool = False
 
