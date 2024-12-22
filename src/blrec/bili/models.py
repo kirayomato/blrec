@@ -39,16 +39,16 @@ class RoomInfo:
 
     @staticmethod
     def from_data(data: ResponseData) -> 'RoomInfo':
-        if (timestamp := data.get('live_start_time')) is not None:
-            live_start_time = cast(int, timestamp)
-        elif (time_string := data.get('live_time')) is not None:
-            if time_string == '0000-00-00 00:00:00':
-                live_start_time = 0
-            else:
-                dt = datetime.fromisoformat(time_string)
-                live_start_time = int(dt.timestamp())
-        else:
-            raise ValueError(f'Failed to init live_start_time: {data}')
+        live_start_time = 0
+        if data.get('live_status') == 1:
+            if (timestamp := data.get('live_start_time')) is not None:
+                live_start_time = cast(int, timestamp)
+            elif (time_string := data.get('live_time')) is not None:
+                if time_string == '0000-00-00 00:00:00':
+                    live_start_time = 0
+                else:
+                    dt = datetime.fromisoformat(time_string)
+                    live_start_time = int(dt.timestamp())
 
         if cover := data.get('cover') or data.get('user_cover', ''):
             cover = ensure_scheme(cover, 'https')
