@@ -17,6 +17,7 @@ class DanmuMsg:
     uid: int
     uname: str  # sender name
     text: str
+    isEmoji: bool
 
     @staticmethod
     def from_danmu(danmu: Danmaku) -> 'DanmuMsg':
@@ -32,6 +33,7 @@ class DanmuMsg:
             uid=int(info[2][0]),
             uname=info[2][1],
             text=info[1],
+            isEmoji=info[0][13] != '{}'
         )
 
 

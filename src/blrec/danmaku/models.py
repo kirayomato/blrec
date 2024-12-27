@@ -28,6 +28,7 @@ class Danmu:
     uname: str
     dmid: int
     text: str
+    isEmoji: bool
 
 
 @attr.s(auto_attribs=True, slots=True, frozen=True)

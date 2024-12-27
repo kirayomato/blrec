@@ -85,6 +85,7 @@ class DanmakuReader:  # TODO rewrite
             uname=elem.get('user'),
             dmid=int(params[7]),
             text=elem.text,
+            isEmoji=bool(int(elem.get('isEmoji')))
         )
 
 
@@ -173,6 +174,7 @@ class DanmakuWriter:
                 f'{dm.stime:.3f},{dm.mode},{dm.size},{dm.color},'
                 f'{dm.date},{dm.pool},{dm.uid_hash},{dm.dmid}'
             ),
+            'isEmoji': str(int(dm.isEmoji)),
             'uid': str(dm.uid),
             'user': dm.uname,
         }

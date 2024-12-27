@@ -262,6 +262,7 @@ class DanmakuDumper(
             uname=msg.uname,
             dmid=msg.dmid,
             text=text,
+            isEmoji=msg.isEmoji
         )
 
     def _make_gift_send_record(self, msg: GiftSendMsg) -> GiftSendRecord:
