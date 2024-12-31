@@ -477,7 +477,6 @@ class Recorder(
             t0 = datetime(date.year, date.month, date.day) + timedelta(days=1)
             t1 = (t0 - date).total_seconds()
             await asyncio.sleep(t1)
-            logger.info('Sleep Over')
             await self._danmaku_dumper._stop_dumping()
 
     async def _start_recording(self) -> None:

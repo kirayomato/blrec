@@ -218,6 +218,7 @@ class LiveMonitor(EventEmitter[LiveEventListener], DanmakuListener, SwitchableMi
                 break
             except Exception as e:
                 self._logger.warning(f'Failed to check if stream available: {repr(e)}')
+                await asyncio.sleep(60)
 
             await asyncio.sleep(1)
 

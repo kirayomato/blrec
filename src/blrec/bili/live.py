@@ -267,8 +267,8 @@ class Live:
     ) -> List[Any]:
         play_infos = await self.get_play_infos(qn, api_platform)
 
-        # for info in play_infos:
-        #     self._check_room_play_info(info)
+        for info in play_infos:
+            self._check_room_play_info(info)
 
         return extract_streams(play_infos)
 
