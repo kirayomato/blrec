@@ -185,6 +185,7 @@ class DanmakuDumper(
 
         try:
             async with DanmakuWriter(self._path) as writer:
+                await self._live.update_room_info()
                 self._logger.info(f"Danmaku file created: '{self._path}'")
                 await self._emit('danmaku_file_created', self._path)
                 await writer.write_metadata(self._make_metadata())
