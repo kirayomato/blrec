@@ -264,8 +264,8 @@ class MessageNotifier(Notifier, ABC):
         try:
             async for attempt in AsyncRetrying(
                 reraise=True,
-                stop=stop_after_attempt(3),
-                wait=wait_exponential(multiplier=1, max=5),
+                stop=stop_after_attempt(5),
+                wait=wait_exponential(multiplier=1, max=10),
                 retry=retry_if_exception(lambda e: not isinstance(e, ValueError)),
             ):
                 with attempt:
