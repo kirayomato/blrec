@@ -391,8 +391,7 @@ class Recorder(
         self._stream_available = False
         self._stream_recorder.stream_available_time = None
         if self.danmaku_only:
-            await self._danmaku_dumper._stop_dumping()
-            await self._start_dumper()
+            await self._restart_dumper()
         else:
             await self._stop_recording()
         self._print_waiting_message()
@@ -446,7 +445,7 @@ class Recorder(
         self._print_live_info()
 
         if self.danmaku_only:
-            asyncio.create_task(self._start_dumping())
+            self._dump_task = asyncio.create_task(self._start_dumping())
         elif self._live.is_living():
             self._stream_available = True
             await self._start_recording()
@@ -454,6 +453,9 @@ class Recorder(
             self._print_waiting_message()
 
     async def _do_stop(self) -> None:
+        if hasattr(self, '_dump_task'):
+            self._dump_task.cancel()
+            del self._dump_task
         await self._stop_recording()
         self._live_monitor.remove_listener(self)
         self._danmaku_dumper.remove_listener(self)
@@ -462,27 +464,32 @@ class Recorder(
         self._logger.debug('Stopped recorder')
 
     async def _start_dumper(self) -> None:
+        self._danmaku_dumper._statistics.reset()
         date = datetime.now()
         path, timestamp = PathProvider(
             self.live, self.out_dir, self.path_template)(
             date.timestamp())
         await self._danmaku_dumper.on_video_file_created(path, timestamp)
 
+    async def _restart_dumper(self) -> None:
+        await self._danmaku_dumper._stop_dumping()
+        await self._start_dumper()
+
     async def _start_dumping(self) -> None:
+        self._recording = True
         self._danmaku_dumper.enable()
         self._danmaku_receiver.start()
+        await self._start_dumper()
         while True:
-            await self._start_dumper()
             date = datetime.now()
             t0 = datetime(date.year, date.month, date.day) + timedelta(days=1)
             t1 = (t0 - date).total_seconds()
             await asyncio.sleep(t1)
-            await self._danmaku_dumper._stop_dumping()
+            await self._restart_dumper()
 
     async def _start_recording(self) -> None:
         if self.danmaku_only:
-            await self._danmaku_dumper._stop_dumping()
-            await self._start_dumper()
+            await self._restart_dumper()
             return
         if self._recording:
             return
@@ -504,10 +511,6 @@ class Recorder(
         await self._emit('recording_started', self)
 
     async def _stop_recording(self) -> None:
-        if self.danmaku_only:
-            self._danmaku_dumper.disable()
-            self._danmaku_receiver.stop()
-            return
         if not self._recording:
             return
         self._recording = False
