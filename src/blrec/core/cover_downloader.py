@@ -17,7 +17,7 @@ from blrec.utils.mixins import SwitchableMixin
 
 from .stream_recorder import StreamRecorder, StreamRecorderEventListener
 
-__all__ = 'CoverDownloader', 'CoverDownloaderEventListener'
+__all__ = 'CoverDownloader', 'CoverDownloaderEventListener', 'CoverSaveStrategy'
 
 
 class CoverDownloaderEventListener(EventListener):

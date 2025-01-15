@@ -9,7 +9,7 @@ from .exceptions import ApiRequestError
 from .net import connector, timeout
 from .typing import QualityNumber, ResponseData, StreamCodec, StreamFormat
 
-__all__ = 'room_init', 'ensure_room_id'
+__all__ = 'room_init', 'ensure_room_id', 'get_nav'
 
 
 async def room_init(room_id: int) -> ResponseData:
