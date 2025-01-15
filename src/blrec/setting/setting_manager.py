@@ -32,7 +32,7 @@ from .models import (
     TaskSettings,
 )
 from .typing import KeySetOfSettings
-
+from loguru import logger
 if TYPE_CHECKING:
     from ..application import Application
 
@@ -71,6 +71,7 @@ class SettingsManager:
                 await func()
             else:
                 func()
+            logger.info(f'Successfully Updated {name} Setting')
 
         if changed:
             await self.dump_settings()
