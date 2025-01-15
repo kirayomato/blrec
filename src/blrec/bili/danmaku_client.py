@@ -14,6 +14,7 @@ from loguru import logger
 from tenacity import retry, retry_if_exception_type, wait_exponential, stop_after_delay
 
 from blrec.logging.context import async_task_with_logger_context
+from .helpers import get_nav
 
 from ..event.event_emitter import EventEmitter, EventListener
 from ..exception import exception_callback
@@ -130,11 +131,13 @@ class DanmakuClient(EventEmitter[DanmakuListener], AsyncStoppableMixin):
         wait=wait_exponential(multiplier=0.1, max=10),
         retry=retry_if_exception_type(
             (asyncio.TimeoutError, aiohttp.ClientError, ConnectionError)
-        ),
-        stop=stop_after_delay(600)
+        )
     )
     async def _connect(self) -> None:
         self._logger.debug('Connecting to server...')
+        json_res = await get_nav(self.headers['Cookie'])
+        if json_res['code'] == -101:
+            raise ValueError("Cookies失效")
         try:
             await self._connect_websocket()
             await self._send_auth()
@@ -142,12 +145,6 @@ class DanmakuClient(EventEmitter[DanmakuListener], AsyncStoppableMixin):
             await self._handle_auth_reply(reply)
         except Exception:
             self._host_index += 1
-            # self._logger.warning('Trying Connecting without cookies...')
-            # t = self.headers
-            # t['Cookie'] = ""
-            # self.headers['Cookie'] = t
-            # self.webapi.headers=t
-            # self.appapi.headers= t
             if self._host_index >= len(self._danmu_info['host_list']):
                 self._host_index = 0
                 # self._rotate_api_platform()  # XXX: use web api only
