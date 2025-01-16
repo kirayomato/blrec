@@ -300,15 +300,27 @@ class Recorder(
 
     @property
     def rec_elapsed(self) -> float:
-        return self._stream_recorder.rec_elapsed
+        if not self.danmaku_only:
+            return self._stream_recorder.rec_elapsed
+        else:
+            return self._danmaku_dumper.elapsed
 
     @property
     def rec_total(self) -> int:
-        return self._stream_recorder.rec_total
+        if not self.danmaku_only:
+            return self._stream_recorder.rec_total
+        else:
+            if not self._danmaku_dumper.dumping_path:
+                return 0
+            else:
+                return os.path.getsize(self._danmaku_dumper.dumping_path)
 
     @property
     def rec_rate(self) -> float:
-        return self._stream_recorder.rec_rate
+        if not self.danmaku_only:
+            return self._stream_recorder.rec_rate
+        else:
+            return self._danmaku_dumper.danmu_rate
 
     @property
     def danmu_total(self) -> int:
@@ -383,18 +395,21 @@ class Recorder(
     async def on_live_began(self, live: Live) -> None:
         self._logger.info('The live has began')
         self._print_live_info()
-        await self._start_recording()
+        if not self.danmaku_only:
+            await self._start_recording()
+        else:
+            await self._restart_dumper()
 
     async def on_live_ended(self, live: Live) -> None:
         self._logger.info('The live has ended')
         await asyncio.sleep(3)
         self._stream_available = False
         self._stream_recorder.stream_available_time = None
-        if self.danmaku_only:
-            await self._restart_dumper()
-        else:
-            await self._stop_recording()
         self._print_waiting_message()
+        if not self.danmaku_only:
+            await self._stop_recording()
+        else:
+            await self._restart_dumper()
 
     async def on_live_stream_available(self, live: Live) -> None:
         self._logger.debug('The live stream becomes available')
@@ -405,7 +420,8 @@ class Recorder(
 
     async def on_live_stream_reset(self, live: Live) -> None:
         self._logger.warning('The live stream has been reset')
-        await self._start_recording()
+        if not self.danmaku_only:
+            await self._start_recording()
 
     async def on_room_changed(self, room_info: RoomInfo) -> None:
         self._print_changed_room_info(room_info)
@@ -485,12 +501,11 @@ class Recorder(
             t0 = datetime(date.year, date.month, date.day) + timedelta(days=1)
             t1 = (t0 - date).total_seconds()
             await asyncio.sleep(t1)
-            await self._restart_dumper()
+            await self._danmaku_dumper._stop_dumping()
+            self._danmaku_dumper.clear_files()
+            await self._start_dumper()
 
     async def _start_recording(self) -> None:
-        if self.danmaku_only:
-            await self._restart_dumper()
-            return
         if self._recording:
             return
         self._recording = True
