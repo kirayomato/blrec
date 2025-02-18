@@ -49,6 +49,11 @@ class DanmakuReceiver(DanmakuListener, StoppableMixin):
             msg = SuperChatMsg.from_danmu(danmu)
         elif cmd == DanmakuCommand.USER_TOAST_MSG.value:
             msg = UserToastMsg.from_danmu(danmu)
+        elif cmd == DanmakuCommand.COMMON_NOTICE_DANMAKU.value:
+            if '投喂' in str(danmu) and '额外' not in str(danmu):
+                msg = GiftSendMsg.from_notice(danmu)
+            else:
+                return
         else:
             return
 

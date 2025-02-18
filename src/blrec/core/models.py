@@ -1,3 +1,4 @@
+import time
 from typing import Literal
 
 import attr
@@ -86,6 +87,22 @@ class GiftSendMsg:
             uid=int(data['uid']),
             uname=data['uname'],
             timestamp=int(data['timestamp']),
+        )
+
+    @classmethod
+    def from_notice(cls, danmu):
+        data = danmu['data']
+        seg = data['content_segments']
+        price = {'干杯之旅': 100, '启航之旅': 1000, '超能魔盒': 1000}
+        gift_name = seg[-1]['text']
+        return GiftSendMsg(
+            gift_name=gift_name,
+            count=1,
+            coin_type='gold',
+            price=price[gift_name] * 100 if gift_name in price else 0,
+            uid=0,
+            uname=seg[0]['text'],
+            timestamp=int(time.time()),
         )
 
 
