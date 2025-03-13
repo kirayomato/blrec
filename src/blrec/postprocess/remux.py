@@ -63,7 +63,7 @@ def remux_video(
     display_progress: bool = False,
     remove_filler_data: bool = False,
 ) -> Observable[Union[RemuxingProgress, RemuxingResult]]:
-    SIZE_PATTERN: Final = re.compile(r'size=\s*(?P<number>\d+)(?P<unit>[a-zA-Z]?B)')
+    SIZE_PATTERN: Final = re.compile(r'size=\s*(?P<number>\d+)\s*(?P<unit>[KMGkmg]?i?[bB])')
     if in_path.endswith('.m3u8'):
         _in_path = video_path(in_path)
         total = os.path.getsize(_in_path)
@@ -77,16 +77,16 @@ def remux_video(
         assert match is not None
         result = match.groupdict()
 
-        unit = result['unit']
+        unit = result['unit'].lower()
         number = int(result['number'])
 
-        if unit == 'B':
+        if unit == 'b':
             size = number
-        elif unit == 'kB':
+        elif unit.startswith('k'):
             size = 1024 * number
-        elif unit == 'MB':
+        elif unit.startswith('m'):
             size = 1024**2 * number
-        elif unit == 'GB':
+        elif unit.startswith('g'):
             size = 1024**3 * number
         else:
             raise ValueError(unit)
