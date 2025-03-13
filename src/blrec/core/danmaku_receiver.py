@@ -50,7 +50,8 @@ class DanmakuReceiver(DanmakuListener, StoppableMixin):
         elif cmd == DanmakuCommand.USER_TOAST_MSG.value:
             msg = UserToastMsg.from_danmu(danmu)
         elif cmd == DanmakuCommand.COMMON_NOTICE_DANMAKU.value:
-            if '投喂' in str(danmu) and '额外' not in str(danmu):
+            text = danmu['data']['content_segments']
+            if len(text) == 3 and '投喂' in str(text):
                 msg = GiftSendMsg.from_notice(danmu)
             else:
                 return
