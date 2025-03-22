@@ -91,6 +91,9 @@ class StreamURLResolver(AsyncCooperationMixin):
                     return
 
                 try:
+                    if params.codec_unavailable:
+                        self._stream_param_holder.codec_unavailable = False
+                        raise NoStreamQualityAvailable
                     logger.info(
                         f'Getting the live stream url... '
                         f'qn: {params.quality_number}, '
@@ -158,6 +161,13 @@ class StreamURLResolver(AsyncCooperationMixin):
         except (NoStreamAvailable, NoStreamCodecAvailable, NoStreamFormatAvailable):
             self._attempts_for_no_stream += 1
             if self._attempts_for_no_stream > self._MAX_ATTEMPTS_FOR_NO_STREAM:
+                qn = self._stream_param_holder.real_quality_number
+                print(exc)
+                logger.warning(
+                    f'Due to {type(exc).__name__}：{exc},' +
+                    f'The specified stream quality ({qn}) is not available, ' +
+                    f'will using the stream quality ({self._stream_param_holder.fall_back_quality(qn)}) instead.'
+                )
                 self._run_coroutine(self._live_monitor.check_live_status())
                 self._attempts_for_no_stream = 0
         except NoStreamQualityAvailable:

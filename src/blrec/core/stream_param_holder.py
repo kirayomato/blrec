@@ -18,6 +18,7 @@ class StreamParams:
     quality_number: QualityNumber
     api_platform: ApiPlatform
     use_alternative_stream: bool
+    codec_unavailable: bool
 
 
 class StreamParamHolder:
@@ -28,6 +29,7 @@ class StreamParamHolder:
         quality_number: QualityNumber = 10000,
         api_platform: ApiPlatform = 'web',
         use_alternative_stream: bool = False,
+        codec_unavailable: bool = False
     ) -> None:
         super().__init__()
         self._stream_format: Final = stream_format
@@ -35,12 +37,14 @@ class StreamParamHolder:
         self._real_quality_number: Optional[QualityNumber] = None
         self._api_platform: ApiPlatform = api_platform
         self._use_alternative_stream: bool = use_alternative_stream
+        self._codec_unavailable: bool = codec_unavailable
         self._cancelled: bool = False
 
     def reset(self) -> None:
         self._real_quality_number = None
         self._api_platform = 'web'
         self._use_alternative_stream = False
+        self._codec_unavailable = False
         self._cancelled = False
 
     def cancel(self) -> None:
@@ -69,6 +73,14 @@ class StreamParamHolder:
     @use_alternative_stream.setter
     def use_alternative_stream(self, value: bool) -> None:
         self._use_alternative_stream = value
+
+    @property
+    def codec_unavailable(self) -> bool:
+        return self._codec_unavailable
+
+    @codec_unavailable.setter
+    def codec_unavailable(self, value: bool) -> None:
+        self._codec_unavailable = value
 
     def fall_back_quality(self, qn) -> None:
         if qn == 150 or qn == 10000:
@@ -106,6 +118,7 @@ class StreamParamHolder:
                     quality_number=self._real_quality_number or self._quality_number,
                     api_platform=self._api_platform,
                     use_alternative_stream=self._use_alternative_stream,
+                    codec_unavailable=self._codec_unavailable
                 )
                 observer.on_next(params)
 
