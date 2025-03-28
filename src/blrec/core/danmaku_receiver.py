@@ -36,6 +36,9 @@ class DanmakuReceiver(DanmakuListener, StoppableMixin):
         return await self._queue.get()
 
     async def on_danmaku_received(self, danmu: Danmaku) -> None:
+        if 'cmd' not in danmu:
+            self._logger.debug(f'Illegal Danmu Found: {danmu}')
+            return
         cmd: str = danmu['cmd']
         msg: DanmakuMsg
 
