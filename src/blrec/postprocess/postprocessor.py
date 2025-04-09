@@ -241,7 +241,7 @@ class Postprocessor(
                 return video_path
         disk = shutil.disk_usage(video_path).free / 1024**3
         video_size /= 1024**3
-        if disk < video_size*1.2:
+        if disk < video_size * 1.2:
             self._logger.warning(
                 f'Space not enough: {disk:.2f}GB < {video_size*1.2:.2f}GB, pass post process')
             return video_path
