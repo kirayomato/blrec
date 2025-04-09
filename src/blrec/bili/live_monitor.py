@@ -119,6 +119,9 @@ class LiveMonitor(EventEmitter[LiveEventListener], DanmakuListener, SwitchableMi
                 await self._handle_status_change(current_status)
 
     async def on_danmaku_received(self, danmu: Danmaku) -> None:
+        if 'cmd' not in danmu:
+            self._logger.debug(f'Illegal Danmu Found: {danmu}')
+            return
         danmu_cmd = danmu['cmd']
 
         if danmu_cmd == DanmakuCommand.LIVE.value:
