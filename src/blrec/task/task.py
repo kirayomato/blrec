@@ -481,6 +481,7 @@ class RecordTask(LiveEventListener):
         await self._recorder.start()
 
     async def disable_recorder(self, force: bool = False) -> None:
+        self.temp_start = 0
         if not self._recorder_enabled:
             return
         self._recorder_enabled = False
@@ -528,14 +529,12 @@ class RecordTask(LiveEventListener):
             self.temp_start = 1
 
     async def on_live_stream_reset(self, live: Live):
-        if not self.temp_start:
-            await self.on_live_began(live)
+        await self.on_live_began(live)
 
     async def on_live_ended(self, live: Live):
         if self.temp_start:
             self._logger.info('End temporarily recording')
             await self.disable_recorder()
-            self.temp_start = 0
 
     def _setup_live_event_submitter(self) -> None:
         self._live_event_submitter = LiveEventSubmitter(self._live_monitor)
