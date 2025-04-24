@@ -21,7 +21,7 @@ from ..exception import exception_callback
 from ..utils.mixins import AsyncStoppableMixin
 from ..utils.string import extract_buvid_from_cookie, extract_uid_from_cookie
 from .api import AppApi, WebApi
-from .exceptions import DanmakuClientAuthError
+from .exceptions import DanmakuClientAuthError, ApiRequestError
 from .typing import ApiPlatform, Danmaku
 
 __all__ = 'DanmakuClient', 'DanmakuListener', 'Danmaku', 'DanmakuCommand'
@@ -136,7 +136,7 @@ class DanmakuClient(EventEmitter[DanmakuListener], AsyncStoppableMixin):
     async def _connect(self) -> None:
         self._logger.debug('Connecting to server...')
         json_res = await get_nav(self.headers['Cookie'])
-        if json_res['code'] == -101:
+        if json_res['code'] == WS.AUTH_TOKEN_ERROR:
             raise ValueError("Cookies失效")
         try:
             await self._connect_websocket()
@@ -239,6 +239,9 @@ class DanmakuClient(EventEmitter[DanmakuListener], AsyncStoppableMixin):
         except Exception as exc:
             self._logger.warning(f'Failed to update danmu info: {repr(exc)}')
             self._danmu_info = COMMON_DANMU_INFO
+            if isinstance(exc, ApiRequestError):
+                if exc.code == -352:
+                    raise ValueError("Cookies失效，触发风控")
         else:
             self._logger.debug('Danmu info updated')
 
@@ -468,7 +471,7 @@ class DanmakuCommand(Enum):
     MATCH_TEAM_GIFT_RANK = 'MATCH_TEAM_GIFT_RANK'
     MESSAGEBOX_USER_GAIN_MEDAL = 'MESSAGEBOX_USER_GAIN_MEDAL'
     NOTICE_MSG = 'NOTICE_MSG'
-    COMMON_NOTICE_DANMAKU ='COMMON_NOTICE_DANMAKU'
+    COMMON_NOTICE_DANMAKU = 'COMMON_NOTICE_DANMAKU'
     PK_AGAIN = 'PK_AGAIN'
     PK_BATTLE_CRIT = 'PK_BATTLE_CRIT'
     PK_BATTLE_END = 'PK_BATTLE_END'
