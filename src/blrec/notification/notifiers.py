@@ -258,7 +258,7 @@ class MessageNotifier(Notifier, ABC):
     async def _send_message_async(
         self, title: str, content: str, msg_type: MessageType
     ) -> None:
-        if time() - self.provider.last_send < 10:
+        if time() - self.provider.last_send < 30:
             return
         self.provider.last_send = time()
         try:

@@ -205,6 +205,8 @@ class Pushplus(MessagingProvider):
             async with session.post(self.url, json=payload) as res:
                 response = cast(PushplusResponse, await res.json())
                 if response['code'] != 200:
+                    if response['code'] in (900, 999):
+                        raise ValueError(response['code'], response['msg'])
                     raise HTTPException(response['code'], response['msg'])
 
 
