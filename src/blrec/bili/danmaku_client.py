@@ -27,6 +27,10 @@ from .typing import ApiPlatform, Danmaku
 __all__ = 'DanmakuClient', 'DanmakuListener', 'Danmaku', 'DanmakuCommand'
 
 
+class CookiesExpiredException(Exception):
+    pass
+
+
 class DanmakuListener(EventListener):
     async def on_client_connected(self) -> None:
         ...
@@ -130,14 +134,15 @@ class DanmakuClient(EventEmitter[DanmakuListener], AsyncStoppableMixin):
     @retry(
         wait=wait_exponential(multiplier=0.1, max=10),
         retry=retry_if_exception_type(
-            (asyncio.TimeoutError, aiohttp.ClientError, ConnectionError)
+            (asyncio.TimeoutError, aiohttp.ClientError,
+             ConnectionError, CookiesExpiredException)
         )
     )
     async def _connect(self) -> None:
         self._logger.debug('Connecting to server...')
         json_res = await get_nav(self.headers['Cookie'])
         if json_res['code'] == WS.AUTH_TOKEN_ERROR:
-            raise ValueError("Cookies失效")
+            raise CookiesExpiredException("Cookies失效")
         try:
             await self._connect_websocket()
             await self._send_auth()
@@ -241,7 +246,7 @@ class DanmakuClient(EventEmitter[DanmakuListener], AsyncStoppableMixin):
             self._danmu_info = COMMON_DANMU_INFO
             if isinstance(exc, ApiRequestError):
                 if exc.code == -352:
-                    raise ValueError("Cookies失效，触发风控")
+                    raise CookiesExpiredException("Cookies失效，触发风控")
         else:
             self._logger.debug('Danmu info updated')
 
