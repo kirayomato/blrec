@@ -138,6 +138,9 @@ class LiveMonitor(EventEmitter[LiveEventListener], DanmakuListener, SwitchableMi
             await self._emit('room_changed', self._live.room_info)
 
     async def _handle_status_change(self, current_status: LiveStatus) -> None:
+        if self._previous_status == current_status:
+            return
+
         self._logger.debug(
             'Live status changed from {} to {}'.format(
                 self._previous_status.name, current_status.name
