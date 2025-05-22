@@ -132,7 +132,7 @@ class DanmakuClient(EventEmitter[DanmakuListener], AsyncStoppableMixin):
         await self._emit('client_reconnected')
 
     @retry(
-        wait=wait_exponential(multiplier=0.1, max=10),
+        wait=wait_exponential(multiplier=0.5, max=30),
         retry=retry_if_exception_type(
             (asyncio.TimeoutError, aiohttp.ClientError,
              ConnectionError, CookiesExpiredException)
