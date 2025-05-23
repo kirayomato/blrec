@@ -82,14 +82,14 @@ class AMFReader:
         if size == 0:
             return ''
         data = self._reader.read(size)
-        return data.decode()
+        return data.decode(errors='backslashreplace')
 
     def _read_long_string(self) -> str:
         size = self._reader.read_ui32()
         if size == 0:
             return ''
         data = self._reader.read(size)
-        return data.decode()
+        return data.decode(errors='backslashreplace')
 
     def _read_object_property(self) -> Tuple[str, Any]:
         key = self._read_string()
