@@ -11,6 +11,7 @@ from tenacity import retry, stop_after_delay, wait_exponential
 
 from .exceptions import ApiRequestError
 from .typing import JsonResponse, QualityNumber, ResponseData
+from .wbi import encWbi, getWbiKeys
 
 __all__ = 'AppApi', 'WebApi'
 
@@ -44,6 +45,7 @@ class BaseApi(ABC):
         self._session = session
         self.headers = headers or {}
         self.timeout = 10
+        self.img_key, self.sub_key = getWbiKeys()
 
     @property
     def headers(self) -> Dict[str, str]:
@@ -293,8 +295,9 @@ class WebApi(BaseApi):
 
     async def get_danmu_info(self, room_id: int) -> ResponseData:
         path = '/xlive/web-room/v1/index/getDanmuInfo'
-        params = {'id': room_id}
-        json_res = await self._get_json(self.base_live_api_urls, path, params=params)
+        params = {'id': room_id, "type": 0}
+        signed_params = encWbi(params, self.img_key, self.sub_key)
+        json_res = await self._get_json(self.base_live_api_urls, path, params=signed_params)
         return json_res['data']
 
     async def get_nav(self) -> ResponseData:
