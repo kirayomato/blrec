@@ -6,6 +6,8 @@ from typing import TYPE_CHECKING, Dict, Iterator, Optional
 import aiohttp
 from tenacity import retry, retry_if_exception_type, stop_after_delay, wait_exponential
 
+from random import uniform
+
 from blrec.utils.libc import malloc_trim
 
 from ..bili.exceptions import ApiRequestError
@@ -49,7 +51,7 @@ class RecordTaskManager:
                 await self.add_task(settings)
             except Exception as e:
                 submit_exception(e)
-            await asyncio.sleep(1)
+            await asyncio.sleep(uniform(0.1,0.5))
         logger.info('Load all tasks complete')
 
     async def destroy_all_tasks(self) -> None:
