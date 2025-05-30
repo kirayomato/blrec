@@ -246,7 +246,8 @@ class DanmakuClient(EventEmitter[DanmakuListener], AsyncStoppableMixin):
             self._danmu_info = COMMON_DANMU_INFO
             if isinstance(exc, ApiRequestError):
                 if exc.code == -352:
-                    raise CookiesExpiredException("Cookies失效，触发风控")
+                    self.webapi.update_wbi()
+                    # raise CookiesExpiredException("Cookies失效，触发风控")
         else:
             self._logger.debug('Danmu info updated')
 

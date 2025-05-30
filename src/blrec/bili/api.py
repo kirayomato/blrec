@@ -45,7 +45,6 @@ class BaseApi(ABC):
         self._session = session
         self.headers = headers or {}
         self.timeout = 10
-        self.img_key, self.sub_key = getWbiKeys()
 
     @property
     def headers(self) -> Dict[str, str]:
@@ -244,6 +243,8 @@ class AppApi(BaseApi):
 
 
 class WebApi(BaseApi):
+    img_key, sub_key = getWbiKeys()
+
     async def room_init(self, room_id: int) -> ResponseData:
         path = '/room/v1/Room/room_init'
         params = {'id': room_id}
@@ -304,3 +305,9 @@ class WebApi(BaseApi):
         path = '/x/web-interface/nav'
         json_res = await self._get_json(self.base_api_urls, path, check_response=False)
         return json_res
+
+    def update_wbi(self):
+        try:
+            self.img_key, self.sub_key = getWbiKeys()
+        except BaseException as e:
+            self._logger.trace('Failed to update wbi', e)
