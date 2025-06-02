@@ -24,14 +24,14 @@ export class FilterTasksPipe implements PipeTransform {
 
   private filterByTerm(dataList: Iterable<TaskData>, term: string) {
     return filter(dataList, (data) => {
-      term = term.trim();
+      term = term.trim().toLowerCase();
       return (
         term === '' ||
-        data.user_info.name.includes(term) ||
-        data.room_info.title.toString().includes(term) ||
-        data.room_info.area_name.toString().includes(term) ||
-        data.room_info.room_id.toString().includes(term) ||
-        data.room_info.short_room_id.toString().includes(term)
+        data.user_info.name.toLowerCase().includes(term) ||
+        data.room_info.title.toString().toLowerCase().includes(term) ||
+        data.room_info.area_name.toString().toLowerCase().includes(term) ||
+        data.room_info.room_id.toString().toLowerCase().includes(term) ||
+        data.room_info.short_room_id.toString().toLowerCase().includes(term)
       );
     });
   }
