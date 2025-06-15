@@ -257,6 +257,9 @@ class Postprocessor(
         else:
             result_path = video_path
 
+        if not (self.inject_extra_metadata or self.remux_to_mp4):
+            await make_metadata_file(video_path)
+
         if not self._debug:
             await discard_file(extra_metadata_path(video_path), 'DEBUG')
 
