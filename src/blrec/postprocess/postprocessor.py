@@ -263,8 +263,8 @@ class Postprocessor(
         return result_path
 
     async def _process_m4s(self, video_path: str) -> str:
-        if not self.remux_to_mp4:
-            return video_path
+        # if not self.remux_to_mp4:
+        #     return video_path
 
         self._status = PostprocessorStatus.REMUXING
         result_path, remuxing_result = await self._remux_video_to_mp4(video_path)
