@@ -218,6 +218,12 @@ class Postprocessor(
                                 os.path.splitext(path0)[0] + '.xml')
                             self._logger.info(
                                 f"Rename {file_name + '.xml'} to {os.path.splitext(path0)[0] + '.xml'}")
+                            if os.path.exists(file_name + '.flv.meta'):
+                                os.rename(
+                                    file_name + '.flv.meta',
+                                    os.path.splitext(path0)[0] + '.flv.meta')
+                                self._logger.info(
+                                    f"Rename {file_name + '.flv.meta'} to {os.path.splitext(path0)[0] + '.flv.meta'}")
                         else:
                             self._logger.info(f'Skip Rename for {result_path}')
                     except Exception as e:
