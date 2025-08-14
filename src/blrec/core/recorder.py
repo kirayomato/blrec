@@ -489,6 +489,7 @@ class Recorder(
 
     async def _restart_dumper(self) -> None:
         await self._danmaku_dumper._stop_dumping()
+        await self._danmaku_client.reconnect()
         await self._start_dumper()
 
     async def _start_dumping(self) -> None:
@@ -509,6 +510,7 @@ class Recorder(
         if self._recording:
             return
         self._recording = True
+        await self._danmaku_client.reconnect()
         if self.save_raw_danmaku:
             self._raw_danmaku_dumper.enable()
             self._raw_danmaku_receiver.start()
