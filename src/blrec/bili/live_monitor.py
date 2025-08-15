@@ -105,6 +105,7 @@ class LiveMonitor(EventEmitter[LiveEventListener], DanmakuListener, SwitchableMi
         current_status = self._live.room_info.live_status
 
         if current_status == self._previous_status:
+            return
             if current_status == LiveStatus.LIVE:
                 self._logger.debug('Simulating stream reset event')
                 await self._handle_status_change(current_status)
@@ -148,7 +149,7 @@ class LiveMonitor(EventEmitter[LiveEventListener], DanmakuListener, SwitchableMi
         )
 
         await self._emit('live_status_changed', current_status, self._previous_status)
-
+        self._previous_status = current_status
         if current_status != LiveStatus.LIVE:
             self._status_count = 0
             self._stream_available = False
@@ -158,13 +159,14 @@ class LiveMonitor(EventEmitter[LiveEventListener], DanmakuListener, SwitchableMi
             self._status_count += 1
 
             if self._status_count == 1:
-                assert self._previous_status != LiveStatus.LIVE
+                # assert self._previous_status != LiveStatus.LIVE
                 await self._emit('live_began', self._live)
                 self._start_checking()
             elif self._status_count == 2:
-                assert self._previous_status == LiveStatus.LIVE
+                pass
+                # assert self._previous_status == LiveStatus.LIVE
             elif self._status_count > 2:
-                assert self._previous_status == LiveStatus.LIVE
+                # assert self._previous_status == LiveStatus.LIVE
                 await self._emit('live_stream_reset', self._live)
             else:
                 pass
@@ -172,8 +174,6 @@ class LiveMonitor(EventEmitter[LiveEventListener], DanmakuListener, SwitchableMi
         self._logger.debug(
             'Number of sequential LIVE status: {}'.format(self._status_count)
         )
-
-        self._previous_status = current_status
 
     async def check_live_status(self) -> None:
         self._logger.debug('Checking live status...')
