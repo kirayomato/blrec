@@ -38,16 +38,16 @@ __all__ = ('RecordTask',)
 
 class RecordTask(LiveEventListener):
     def __init__(
-        self,
-        room_id: int,
-        *,
-        out_dir: str = '',
-        path_template: str = '',
-        cookie: str = '',
-        user_agent: str = '',
-        remux_to_mp4: bool = False,
-        inject_extra_metadata: bool = True,
-        delete_source: DeleteStrategy = DeleteStrategy.AUTO,
+            self,
+            room_id: int,
+            *,
+            out_dir: str = '',
+            path_template: str = '',
+            cookie: str = '',
+            user_agent: str = '',
+            remux_to_mp4: bool = False,
+            inject_extra_metadata: bool = True,
+            delete_source: DeleteStrategy = DeleteStrategy.AUTO,
     ) -> None:
         super().__init__()
 

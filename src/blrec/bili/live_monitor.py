@@ -20,7 +20,7 @@ __all__ = 'LiveMonitor', 'LiveEventListener'
 
 class LiveEventListener(EventListener):
     async def on_live_status_changed(
-        self, current_status: LiveStatus, previous_status: LiveStatus
+            self, current_status: LiveStatus, previous_status: LiveStatus
     ) -> None:
         ...
 

@@ -52,14 +52,14 @@ class DanmakuClient(EventEmitter[DanmakuListener], AsyncStoppableMixin):
     _HEARTBEAT_INTERVAL: Final[int] = 30
 
     def __init__(
-        self,
-        session: ClientSession,
-        appapi: AppApi,
-        webapi: WebApi,
-        room_id: int,
-        *,
-        max_retries: int = 60,
-        headers: Optional[Dict[str, str]] = None,
+            self,
+            session: ClientSession,
+            appapi: AppApi,
+            webapi: WebApi,
+            room_id: int,
+            *,
+            max_retries: int = 60,
+            headers: Optional[Dict[str, str]] = None,
     ) -> None:
         super().__init__()
         self._logger_context = {'room_id': room_id}
@@ -82,9 +82,9 @@ class DanmakuClient(EventEmitter[DanmakuListener], AsyncStoppableMixin):
         self._protover: int = WS.BODY_PROTOCOL_VERSION_BROTLI
         if ver := os.environ.get('BLREC_DANMAKU_PROTOCOL_VERSION'):
             if ver in (
-                str(WS.BODY_PROTOCOL_VERSION_NORMAL),
-                str(WS.BODY_PROTOCOL_VERSION_DEFLATE),
-                str(WS.BODY_PROTOCOL_VERSION_BROTLI),
+                    str(WS.BODY_PROTOCOL_VERSION_NORMAL),
+                    str(WS.BODY_PROTOCOL_VERSION_DEFLATE),
+                    str(WS.BODY_PROTOCOL_VERSION_BROTLI),
             ):
                 self._protover = int(ver)
             else:
@@ -412,7 +412,7 @@ class Frame:
                 plen, hlen, ver, op, _ = struct.unpack_from(
                     Frame.HEADER_FORMAT, data, offset
                 )
-                body = data[hlen + offset : plen + offset]
+                body = data[hlen + offset: plen + offset]
                 msg = body.decode('utf8')
                 msg_list.append(msg)
                 offset += plen
