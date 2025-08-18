@@ -14,6 +14,7 @@ from .helpers import extract_formats
 from .live import Live
 from .models import LiveStatus, RoomInfo
 from .typing import Danmaku
+from time import time
 
 __all__ = 'LiveMonitor', 'LiveEventListener'
 
@@ -37,6 +38,9 @@ class LiveEventListener(EventListener):
         ...
 
     async def on_room_changed(self, room_info: RoomInfo) -> None:
+        ...
+
+    async def on_live_status_delay(self) -> None:
         ...
 
 
@@ -160,6 +164,8 @@ class LiveMonitor(EventEmitter[LiveEventListener], DanmakuListener, SwitchableMi
 
             if self._status_count == 1:
                 # assert self._previous_status != LiveStatus.LIVE
+                if time() - self._live.room_info.live_start_time > 60:
+                    await self._emit('live_status_delay')
                 await self._emit('live_began', self._live)
                 self._start_checking()
             elif self._status_count == 2:

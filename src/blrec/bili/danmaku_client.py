@@ -78,6 +78,7 @@ class DanmakuClient(EventEmitter[DanmakuListener], AsyncStoppableMixin):
         self._host_index: int = 0
         self._retry_delay: int = 0
         self._MAX_RETRIES: Final[int] = max_retries
+        self._client_number = 0
 
         self._protover: int = WS.BODY_PROTOCOL_VERSION_BROTLI
         if ver := os.environ.get('BLREC_DANMAKU_PROTOCOL_VERSION'):
@@ -277,6 +278,8 @@ class DanmakuClient(EventEmitter[DanmakuListener], AsyncStoppableMixin):
             try:
                 await self._ws.send_bytes(data)
             except Exception as exc:
+                if self.stopped:
+                    raise asyncio.CancelledError
                 self._logger.warning(f'Failed to send heartbeat: {repr(exc)}')
                 await self._emit('error_occurred', exc)
                 task = asyncio.create_task(self.restart())
@@ -285,21 +288,24 @@ class DanmakuClient(EventEmitter[DanmakuListener], AsyncStoppableMixin):
             await asyncio.sleep(self._HEARTBEAT_INTERVAL)
 
     async def _create_message_loop(self) -> None:
-        self._message_loop_task = asyncio.create_task(self._message_loop())
+        self._message_loop_task = asyncio.create_task(self._message_loop(self._client_number))
         self._message_loop_task.add_done_callback(exception_callback)
         self._logger.debug('Created message loop')
 
     async def _terminate_message_loop(self) -> None:
+        self._client_number += 1
         self._message_loop_task.cancel()
         with suppress(asyncio.CancelledError):
             await self._message_loop_task
         self._logger.debug('Terminated message loop')
 
     @async_task_with_logger_context
-    async def _message_loop(self) -> None:
-        while True:
+    async def _message_loop(self, num) -> None:
+        self._logger.debug(f'message loop:{num} start')
+        while asyncio.current_task()==self._message_loop_task:
             for msg in await self._receive():
                 await self._dispatch_message(msg)
+        self._logger.debug(f'message loop:{num} exit')
 
     async def _dispatch_message(self, msg: Dict[str, Any]) -> None:
         await self._emit('danmaku_received', msg)

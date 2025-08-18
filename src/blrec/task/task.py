@@ -1,3 +1,4 @@
+import asyncio
 import os
 from contextlib import suppress
 from pathlib import PurePath
@@ -535,6 +536,16 @@ class RecordTask(LiveEventListener):
         if self.temp_start:
             self._logger.info('End temporarily recording')
             await self.disable_recorder()
+            self.temp_start = 0
+
+    async def on_live_status_delay(self) -> None:
+        rec = self._recorder_enabled
+        await self.disable_recorder(False)
+        await self.disable_monitor()
+        await asyncio.sleep(1)
+        await self.enable_monitor()
+        if rec:
+            await self.enable_recorder()
 
     def _setup_live_event_submitter(self) -> None:
         self._live_event_submitter = LiveEventSubmitter(self._live_monitor)
