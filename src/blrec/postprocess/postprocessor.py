@@ -41,18 +41,17 @@ __all__ = (
     'DeleteStrategy',
 )
 
-
 DISPLAY_PROGRESS = bool(os.environ.get('BLREC_PROGRESS'))
 
 
 class PostprocessorEventListener(EventListener):
     async def on_video_postprocessing_completed(
-        self, postprocessor: Postprocessor, path: str
+            self, postprocessor: Postprocessor, path: str
     ) -> None:
         ...
 
     async def on_postprocessing_completed(
-        self, postprocessor: Postprocessor, files: List[str]
+            self, postprocessor: Postprocessor, files: List[str]
     ) -> None:
         ...
 
@@ -67,13 +66,13 @@ class Postprocessor(
     _worker_semaphore: Final = asyncio.Semaphore(value=1)
 
     def __init__(
-        self,
-        live: Live,
-        recorder: Recorder,
-        *,
-        remux_to_mp4: bool = False,
-        inject_extra_metadata: bool = False,
-        delete_source: DeleteStrategy = DeleteStrategy.AUTO,
+            self,
+            live: Live,
+            recorder: Recorder,
+            *,
+            remux_to_mp4: bool = False,
+            inject_extra_metadata: bool = False,
+            delete_source: DeleteStrategy = DeleteStrategy.AUTO,
     ) -> None:
         super().__init__()
         self._init_for_debug(live.room_id)
@@ -182,12 +181,19 @@ class Postprocessor(
             await self._wait_for_metadata_file(video_path)
             try:
                 _, ext = os.path.splitext(video_path)
-                if ext == '.flv':
-                    result_path = await self._process_flv(video_path)
+                result_path = video_path
+                metadata_path = await make_metadata_file(video_path)
+
+                free_disk = shutil.disk_usage(video_path).free / 1024 ** 3
+                video_size = os.path.getsize(video_path) / 1024 ** 3
+
+                if free_disk < video_size * 1.2:
+                    self._logger.warning(
+                        f'Space not enough: {free_disk:.2f}GB < {video_size * 1.2:.2f}GB, pass post process')
+                elif ext == '.flv':
+                    result_path = await self._process_flv(video_path, metadata_path)
                 elif ext == '.m4s':
-                    result_path = await self._process_m4s(video_path)
-                else:
-                    result_path = video_path
+                    result_path = await self._process_m4s(video_path, metadata_path)
 
                 if result_path != video_path:
                     self._completed_files.append(result_path)
@@ -239,29 +245,25 @@ class Postprocessor(
                         f"Failed to Rename for {result_path}, can't get file timestamp")
                 self._queue.task_done()
 
-    async def _process_flv(self, video_path: str) -> str:
+    async def _process_flv(self, video_path: str, metadata_path: str) -> str:
         video_size = os.path.getsize(video_path)
         if not await self._is_vaild_flv_file(video_path):
             self._logger.warning(f'The flv file may be invalid: {video_path}')
-            if video_size < 1024**2:
+            if video_size < 1024 ** 2:
                 return video_path
-        disk = shutil.disk_usage(video_path).free / 1024**3
-        video_size /= 1024**3
-        if disk < video_size * 1.2:
-            self._logger.warning(
-                f'Space not enough: {disk:.2f}GB < {video_size*1.2:.2f}GB, pass post process')
-            return video_path
+
         if self.remux_to_mp4 or '电台' in self._live.room_info.area_name:
             self._status = PostprocessorStatus.REMUXING
-            result_path, remuxing_result = await self._remux_video_to_mp4(video_path)
+            result_path, remuxing_result = await self._remux_video_to_mp4(video_path, metadata_path)
             if not self._debug:
                 if self._should_delete_source_files(remuxing_result):
                     await discard_file(video_path)
         elif self.inject_extra_metadata:
             self._status = PostprocessorStatus.INJECTING
             result_path = await self._inject_extra_metadata(video_path)
+            if not self._debug:
+                await discard_file(metadata_path, 'DEBUG')
         else:
-            await make_metadata_file(video_path)
             result_path = video_path
 
         if not self._debug:
@@ -269,12 +271,12 @@ class Postprocessor(
 
         return result_path
 
-    async def _process_m4s(self, video_path: str) -> str:
+    async def _process_m4s(self, video_path: str, metadata_path: str) -> str:
         # if not self.remux_to_mp4:
         #     return video_path
 
         self._status = PostprocessorStatus.REMUXING
-        result_path, remuxing_result = await self._remux_video_to_mp4(video_path)
+        result_path, remuxing_result = await self._remux_video_to_mp4(video_path, metadata_path)
 
         if not self._debug and self._should_delete_source_files(
                 remuxing_result):
@@ -312,35 +314,27 @@ class Postprocessor(
             self._logger.info(f"Successfully injected metadata for '{path}'")
         return path
 
-    async def _remux_video_to_mp4(self, in_path: str) -> Tuple[str, RemuxingResult]:
+    async def _remux_video_to_mp4(self, in_path: str, metadata_path: str) -> Tuple[str, RemuxingResult]:
         _, ext = os.path.splitext(in_path)
+        out_path = str(PurePath(in_path).with_suffix('.mp4'))
 
-        if ext == '.flv':
-            out_path = str(PurePath(in_path).with_suffix('.mp4'))
-            metadata_path = await make_metadata_file(in_path)
-        elif ext == '.m4s':
-            _in_path = in_path
+        _in_path = in_path
+        if ext == '.m4s':
             in_path = playlist_path(in_path)
-            out_path = str(PurePath(in_path).with_suffix('.mp4'))
-            metadata_path = await make_metadata_file(_in_path)
-        else:
-            raise NotImplementedError(in_path)
 
         self._logger.info(f"Remuxing '{in_path}' to '{out_path}' ...")
         remux_result = await self._remux_video(in_path, out_path, metadata_path)
 
-        if remux_result.is_failed():
-            self._logger.error(f"Failed to remux '{in_path}' to '{out_path}'")
-            result_path = _in_path if ext == 'm4s' else in_path
-        elif remux_result.is_warned():
-            self._logger.warning('Remuxing done, but ran into problems.')
-            result_path = out_path
-        elif remux_result.is_successful():
+        if remux_result.is_successful():
             self._logger.info(
                 f"Successfully remuxed '{in_path}' to '{out_path}'")
             result_path = out_path
+        elif remux_result.is_warned():
+            self._logger.warning('Remuxing done, but ran into problems.')
+            result_path = out_path
         else:
-            pass
+            self._logger.error(f"Failed to remux '{in_path}' to '{out_path}'")
+            result_path = _in_path if ext == 'm4s' else in_path
 
         self._logger.debug(f'ffmpeg output:\n{remux_result.output}')
 
@@ -384,7 +378,7 @@ class Postprocessor(
         return future
 
     def _remux_video(
-        self, in_path: str, out_path: str, metadata_path: str
+            self, in_path: str, out_path: str, metadata_path: str
     ) -> Awaitable[RemuxingResult]:
         future: asyncio.Future[RemuxingResult] = asyncio.Future()
         self._postprocessing_path = in_path
