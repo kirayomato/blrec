@@ -129,6 +129,7 @@ class DanmakuClient(EventEmitter[DanmakuListener], AsyncStoppableMixin):
 
         self._logger.debug('Reconnecting...')
         await self._disconnect()
+        await asyncio.sleep(1)
         await self._connect()
         await self._emit('client_reconnected')
 
