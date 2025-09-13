@@ -80,6 +80,7 @@ class DanmakuClient(EventEmitter[DanmakuListener], AsyncStoppableMixin):
         self._MAX_RETRIES: Final[int] = max_retries
         self._client_number = 0
 
+        self._connected = False
         self._protover: int = WS.BODY_PROTOCOL_VERSION_BROTLI
         if ver := os.environ.get('BLREC_DANMAKU_PROTOCOL_VERSION'):
             if ver in (
@@ -159,6 +160,7 @@ class DanmakuClient(EventEmitter[DanmakuListener], AsyncStoppableMixin):
             raise
         else:
             self._logger.debug('Connected to server')
+            self._connected = True
             await self._emit('client_connected')
 
     async def _connect_websocket(self) -> None:
@@ -254,6 +256,7 @@ class DanmakuClient(EventEmitter[DanmakuListener], AsyncStoppableMixin):
             self._logger.debug('Danmu info updated')
 
     async def _disconnect(self) -> None:
+        self._connected = False
         await self._cancel_heartbeat_task()
         await self._close_websocket()
         self._logger.debug('Disconnected from server')
@@ -279,7 +282,7 @@ class DanmakuClient(EventEmitter[DanmakuListener], AsyncStoppableMixin):
             try:
                 await self._ws.send_bytes(data)
             except Exception as exc:
-                if self.stopped:
+                if self.stopped or not self._connected:
                     raise asyncio.CancelledError
                 self._logger.warning(f'Failed to send heartbeat: {repr(exc)}')
                 await self._emit('error_occurred', exc)
@@ -328,7 +331,8 @@ class DanmakuClient(EventEmitter[DanmakuListener], AsyncStoppableMixin):
                 elif wsmsg.type == aiohttp.WSMsgType.CLOSED:
                     msg = 'WebSocket Closed'
                     exc = aiohttp.WebSocketError(self._ws.close_code or 1006, msg)
-                    await self._handle_receive_error(exc)
+                    if self._connected:
+                        await self._handle_receive_error(exc)
                 else:
                     await self._handle_receive_error(ValueError(wsmsg))
 
@@ -369,9 +373,9 @@ class DanmakuClient(EventEmitter[DanmakuListener], AsyncStoppableMixin):
                     )
                 )
                 await asyncio.sleep(self._retry_delay)
-            await self.reconnect()
             self._retry_count += 1
             self._retry_delay += 1
+            await self.reconnect()
         else:
             raise aiohttp.WebSocketError(1006, 'Over the maximum of retries')
 
