@@ -66,9 +66,9 @@ def cli_main(
     if ipv4 is not None:
         os.environ['BLREC_IPV4'] = '1'
     if danmaku_only is not None:
-        os.environ['BLREC_IPV4_DANMAKU_ONLY'] = '1'
+        os.environ['BLREC_DANMAKU_ONLY'] = '1'
     else:
-        os.environ['BLREC_IPV4_DANMAKU_ONLY'] = ''
+        os.environ['BLREC_DANMAKU_ONLY'] = ''
     if not sys.stderr.isatty():
         progress = False
     if progress:
