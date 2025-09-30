@@ -43,6 +43,9 @@ class LiveEventListener(EventListener):
     async def on_live_status_delay(self) -> None:
         ...
 
+    async def on_live_area_changed(self, old_area: str) -> None:
+        ...
+
 
 class LiveMonitor(EventEmitter[LiveEventListener], DanmakuListener, SwitchableMixin):
     def __init__(self, danmaku_client: DanmakuClient, live: Live) -> None:
@@ -139,8 +142,11 @@ class LiveMonitor(EventEmitter[LiveEventListener], DanmakuListener, SwitchableMi
             else:
                 await self._handle_status_change(LiveStatus.PREPARING)
         elif danmu_cmd == DanmakuCommand.ROOM_CHANGE.value:
+            old_area = self._live.room_info.parent_area_name
             await self._live.update_room_info()
             await self._emit('room_changed', self._live.room_info)
+            if self._live.room_info.parent_area_name != old_area:
+                await self._emit('live_area_changed', old_area)
 
     async def _handle_status_change(self, current_status: LiveStatus) -> None:
         if self._previous_status == current_status:

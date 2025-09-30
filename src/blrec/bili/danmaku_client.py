@@ -333,6 +333,8 @@ class DanmakuClient(EventEmitter[DanmakuListener], AsyncStoppableMixin):
                     exc = aiohttp.WebSocketError(self._ws.close_code or 1006, msg)
                     if self._connected:
                         await self._handle_receive_error(exc)
+                    else:
+                        raise asyncio.CancelledError
                 else:
                     await self._handle_receive_error(ValueError(wsmsg))
 

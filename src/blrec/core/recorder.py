@@ -390,7 +390,12 @@ class Recorder(
         return self._stream_recorder.can_cut_stream()
 
     def cut_stream(self) -> bool:
-        return self._stream_recorder.cut_stream()
+        if self.danmaku_only:
+            loop = asyncio.get_running_loop()
+            future = asyncio.run_coroutine_threadsafe(self._restart_dumper(), loop)
+            return True
+        else:
+            return self._stream_recorder.cut_stream()
 
     async def on_live_began(self, live: Live) -> None:
         self._logger.info('The live has began')
@@ -426,6 +431,11 @@ class Recorder(
     async def on_room_changed(self, room_info: RoomInfo) -> None:
         self._print_changed_room_info(room_info)
         self._stream_recorder.update_progress_bar_info()
+
+    async def on_live_area_changed(self, old_area: str) -> None:
+        logger.info(f"Live Area Changed: {old_area} -> {self._live.room_info.parent_area_name}")
+        if self.recording:
+            self.cut_stream()
 
     async def on_video_file_created(self, path: str, record_start_time: int) -> None:
         await self._emit('video_file_created', self, path)

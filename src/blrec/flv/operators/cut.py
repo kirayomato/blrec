@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from typing import Optional
 
 from loguru import logger
@@ -38,6 +39,8 @@ class Cutter:
         return self._cutting
 
     def can_cut_stream(self) -> bool:
+        if bool(os.environ['BLREC_DANMAKU_ONLY']):
+            return True
         if self._triggered or self._cutting:
             return False
         return self._last_timestamp >= self._min_duration
