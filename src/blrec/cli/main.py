@@ -55,6 +55,8 @@ def cli_main(
     danmaku_only: bool = typer.Option(None, help='use danmaku only mode'),
 ) -> None:
     """Bilibili live streaming recorder"""
+    if host.lower() == 'none':
+        host = None
     if config is not None:
         os.environ['BLREC_CONFIG'] = config
     if api_key is not None:
