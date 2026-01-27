@@ -313,7 +313,7 @@ class TaskSettings(TaskOptions):
     # must use the real room id rather than the short room id!
     room_id: Annotated[int, Field(ge=1)]
     enable_monitor: bool = True
-    enable_recorder: bool = True
+    enable_recorder: bool = False
 
 
 def log_dir_factory() -> str:
