@@ -9,7 +9,8 @@ import attr
 import humanize
 from liquid import Environment
 from liquid.filter import math_filter
-from pkg_resources import resource_string
+from importlib.resources import read_text
+
 from tenacity import (
     AsyncRetrying,
     retry_if_exception,
@@ -52,6 +53,10 @@ __all__ = (
 
 
 from loguru import logger
+
+
+def resource_string(package, resource):
+    return read_text(package, resource).encode('utf-8')
 
 
 class Notifier(SwitchableMixin, ABC):

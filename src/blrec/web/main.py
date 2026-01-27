@@ -6,7 +6,7 @@ from fastapi import Depends, FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
-from pkg_resources import resource_filename
+from importlib.resources import files
 from pydantic import ValidationError
 from starlette.responses import Response
 
@@ -141,5 +141,5 @@ class WebAppFiles(StaticFiles):
         return response
 
 
-directory = resource_filename(__name__, '../data/webapp')
+directory = str(files(__name__.rsplit('.', 1)[0]).joinpath('../data/webapp'))
 api.mount('/', WebAppFiles(directory=directory, html=True), name='webapp')
