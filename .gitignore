@@ -148,4 +148,8 @@ _*/
 
 # PyCharm
 .idea/
-settings.toml
+
+*.toml
+*.bat
+/录播文件
+/日志文件
