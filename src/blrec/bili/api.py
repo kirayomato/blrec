@@ -1,5 +1,6 @@
 import asyncio
 import hashlib
+import time
 from abc import ABC
 from datetime import datetime
 from typing import Any, Dict, Final, List, Mapping, Optional
@@ -10,8 +11,8 @@ from loguru import logger
 from tenacity import retry, stop_after_delay, wait_exponential
 
 from .exceptions import ApiRequestError
+from . import wbi
 from .typing import JsonResponse, QualityNumber, ResponseData
-from .wbi import encWbi, getWbiKeys
 
 __all__ = 'AppApi', 'WebApi'
 
@@ -24,7 +25,7 @@ BASE_HEADERS: Final = {
     'Connection': 'keep-alive',
     'Origin': 'https://live.bilibili.com',
     'Pragma': 'no-cache',
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',  # noqa
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36',  # noqa
 }
 
 
@@ -243,7 +244,29 @@ class AppApi(BaseApi):
 
 
 class WebApi(BaseApi):
-    img_key, sub_key = getWbiKeys()
+    _wbi_key = wbi.make_key(
+        img_key="7cd084941338484aae1ad9425b84077c",
+        sub_key="4932caff0ff746eab6f01bf08b70ac45",
+    )
+    _wbi_key_mtime = 0.0
+
+    @retry(reraise=True, stop=stop_after_delay(20), wait=wait_exponential(0.5))
+    async def _get_json_res(
+        self, url: str, with_wbi: bool = False, *args: Any, **kwds: Any
+    ) -> JsonResponse:
+        if with_wbi:
+            key = self.__class__._wbi_key
+            ts = int(datetime.now().timestamp())
+            params = list(kwds.pop("params").items())
+            query = wbi.build_query(key, ts, params)
+            url = f'{url}?{query}'
+
+        try:
+            return await super()._get_json_res(url, *args, **kwds)
+        except ApiRequestError as e:
+            if e.code == -352 and time.monotonic() - self.__class__._wbi_key_mtime > 60:
+                await self._update_wbi_key()
+            raise
 
     async def room_init(self, room_id: int) -> ResponseData:
         path = '/room/v1/Room/room_init'
@@ -265,14 +288,16 @@ class WebApi(BaseApi):
             'ptype': 8,
         }
         json_responses = await self._get_jsons_concurrently(
-            self.base_play_info_api_urls, path, params=params
+            self.base_play_info_api_urls, path, with_wbi=True, params=params
         )
         return [r['data'] for r in json_responses]
 
     async def get_info_by_room(self, room_id: int) -> ResponseData:
         path = '/xlive/web-room/v1/index/getInfoByRoom'
         params = {'room_id': room_id}
-        json_res = await self._get_json(self.base_live_api_urls, path, params=params)
+        json_res = await self._get_json(
+            self.base_live_api_urls, path, with_wbi=True, params=params
+        )
         return json_res['data']
 
     async def get_info(self, room_id: int) -> ResponseData:
@@ -288,17 +313,19 @@ class WebApi(BaseApi):
         return json_res['data']['timestamp']
 
     async def get_user_info(self, uid: int) -> ResponseData:
-        # FIXME: "code": -352, "message": "风控校验失败",
         path = '/x/space/wbi/acc/info'
         params = {'mid': uid}
-        json_res = await self._get_json(self.base_api_urls, path, params=params)
+        json_res = await self._get_json(
+            self.base_api_urls, path, with_wbi=True, params=params
+        )
         return json_res['data']
 
     async def get_danmu_info(self, room_id: int) -> ResponseData:
         path = '/xlive/web-room/v1/index/getDanmuInfo'
         params = {'id': room_id, "type": 0}
-        signed_params = encWbi(params, self.img_key, self.sub_key)
-        json_res = await self._get_json(self.base_live_api_urls, path, params=signed_params)
+        json_res = await self._get_json(
+            self.base_live_api_urls, path, with_wbi=True, params=params
+        )
         return json_res['data']
 
     async def get_nav(self) -> ResponseData:
@@ -306,8 +333,9 @@ class WebApi(BaseApi):
         json_res = await self._get_json(self.base_api_urls, path, check_response=False)
         return json_res
 
-    def update_wbi(self):
-        try:
-            self.img_key, self.sub_key = getWbiKeys()
-        except BaseException as e:
-            self._logger.trace('Failed to update wbi', e)
+    async def _update_wbi_key(self) -> None:
+        nav = await self.get_nav()
+        img_key = wbi.extract_key(nav['data']['wbi_img']['img_url'])
+        sub_key = wbi.extract_key(nav['data']['wbi_img']['sub_url'])
+        self.__class__._wbi_key = wbi.make_key(img_key, sub_key)
+        self.__class__._wbi_key_mtime = time.monotonic()

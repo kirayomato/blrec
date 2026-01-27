@@ -1,61 +1,84 @@
-from functools import reduce
-from hashlib import md5
-import urllib.parse
-import time
-import requests
-
-headers = {
-    'Accept-Encoding': 'gzip, deflate, br',
-    'Accept-Language': 'zh-CN,zh;q=0.8,zh-TW;q=0.7,zh-HK;q=0.5,en;q=0.3,en-US;q=0.2',  # noqa
-    'Accept': 'application/json, text/plain, */*',
-    'Cache-Control': 'no-cache',
-    'Connection': 'keep-alive',
-    'Origin': 'https://live.bilibili.com',
-    'Referer': 'https://live.bilibili.com',
-    'Pragma': 'no-cache',
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',  # noqa
-}
-mixinKeyEncTab = [
-    46, 47, 18, 2, 53, 8, 23, 32, 15, 50, 10, 31, 58, 3, 45, 35, 27, 43, 5, 49,
-    33, 9, 42, 19, 29, 28, 14, 39, 12, 38, 41, 13, 37, 48, 7, 16, 24, 55, 40,
-    61, 26, 17, 0, 1, 60, 51, 30, 4, 22, 25, 54, 21, 56, 59, 6, 63, 57, 62, 11,
-    36, 20, 34, 44, 52
-]
+import hashlib
+from typing import Any, List, Tuple
 
 
-def getMixinKey(orig: str):
-    '对 imgKey 和 subKey 进行字符顺序打乱编码'
-    return reduce(lambda s, i: s + orig[i], mixinKeyEncTab, '')[:32]
+def extract_key(url: str) -> str:
+    return url.rsplit("/", 1)[-1].rsplit(".", 1)[0]
 
 
-def encWbi(params: dict, img_key: str, sub_key: str):
-    '为请求参数进行 wbi 签名'
-    if not (img_key and sub_key):
-        return params
-    mixin_key = getMixinKey(img_key + sub_key)
-    curr_time = round(time.time())
-    params['wts'] = curr_time                                   # 添加 wts 字段
-    params = dict(sorted(params.items()))                       # 按照 key 重排参数
-    # 过滤 value 中的 "!'()*" 字符
-    params = {
-        k: ''.join(filter(lambda chr: chr not in "!'()*", str(v)))
-        for k, v
-        in params.items()
-    }
-    query = urllib.parse.urlencode(params)                      # 序列化参数
-    wbi_sign = md5((query + mixin_key).encode()).hexdigest()    # 计算 w_rid
-    params['w_rid'] = wbi_sign
-    return params
+def make_key(img_key: str, sub_key: str) -> str:
+    # fmt: off
+    MAPPING = [
+        46, 47, 18, 2, 53, 8, 23, 32, 15, 50, 10, 31, 58, 3, 45, 35,
+        27, 43, 5, 49, 33, 9, 42, 19, 29, 28, 14, 39, 12, 38, 41, 13,
+    ]
+    key = (img_key + sub_key).encode()
+    return bytes([key[n] for n in MAPPING]).decode()
 
 
-def getWbiKeys() -> tuple[str, str]:
-    '获取最新的 img_key 和 sub_key'
-    resp = requests.get(
-        'https://api.bilibili.com/x/web-interface/nav', headers=headers)
-    resp.raise_for_status()
-    json_content = resp.json()
-    img_url: str = json_content['data']['wbi_img']['img_url']
-    sub_url: str = json_content['data']['wbi_img']['sub_url']
-    img_key = img_url.rsplit('/', 1)[1].split('.')[0]
-    sub_key = sub_url.rsplit('/', 1)[1].split('.')[0]
-    return img_key, sub_key
+def encode_value(value: str) -> str:
+    chars = []
+
+    for c in value:
+        if c in "!'()*":
+            continue
+        if (c.isascii() and c.isalnum()) or c in "-_.~":
+            chars.append(c)
+        else:
+            for b in c.encode():
+                chars.append(f"%{b:02X}")
+
+    return "".join(chars)
+
+
+def build_query(key: str, ts: int, params: List[Tuple[str, Any]]) -> str:
+    params.append(("wts", str(ts)))
+    params.sort(key=lambda p: p[0])
+
+    parts = []
+    for name, value in params:
+        parts.append(f"{name}={encode_value(str(value))}")
+    query = "&".join(parts)
+
+    sign = hashlib.md5((query + key).encode()).hexdigest()
+    query += f"&w_rid={sign}"
+
+    return query
+
+
+def test_extract_key() -> None:
+    url = "https://i0.hdslb.com/bfs/wbi/7cd084941338484aae1ad9425b84077c.png"
+    key = extract_key(url)
+    assert key == "7cd084941338484aae1ad9425b84077c"
+
+
+def test_make_key() -> None:
+    img_key = "7cd084941338484aae1ad9425b84077c"
+    sub_key = "4932caff0ff746eab6f01bf08b70ac45"
+    expected = "ea1db124af3c7062474693fa704f4ff8"
+    key = make_key(img_key, sub_key)
+    assert key == expected
+
+
+def test_encode_value() -> None:
+    expected = "-_-%20F%20%E5%93%94~"
+    assert encode_value(")-_-( F**' 哔~!") == expected
+
+
+def test_build_query() -> None:
+    img_key = "7cd084941338484aae1ad9425b84077c"
+    sub_key = "4932caff0ff746eab6f01bf08b70ac45"
+
+    key = make_key(img_key, sub_key)
+    ts = 1748867128
+    params = [("foo", ")-_-( F**' 哔~!"), ("bar", 2333)]
+
+    expected = "bar=2333&foo=-_-%20F%20%E5%93%94~&wts=1748867128&w_rid=6ba96e28a3f09b40e704f1e4b4f8e3e3"  # noqa
+    assert build_query(key, ts, params) == expected
+
+
+if __name__ == "__main__":
+    test_extract_key()
+    test_make_key()
+    test_encode_value()
+    test_build_query()

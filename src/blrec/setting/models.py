@@ -131,9 +131,7 @@ class HeaderOptions(BaseModel):
 
 class HeaderSettings(HeaderOptions):
     user_agent: str = (
-        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
-        'AppleWebKit/537.36 (KHTML, like Gecko) '
-        'Chrome/89.0.4389.114 Safari/537.36'
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36'  # noqa
     )
     cookie: str = ''
 
@@ -194,13 +192,11 @@ class RecorderOptions(BaseModel):
 class RecorderSettings(RecorderOptions):
     stream_format: StreamFormat = 'flv'
     recording_mode: RecordingMode = 'standard'
-    quality_number: QualityNumber = 20000  # 4K, the highest quality.
+    quality_number: QualityNumber = 10000
     fmp4_stream_timeout: int = 10
     read_timeout: int = 3
     disconnection_timeout: int = 600
-    buffer_size: Annotated[
-        int, Field(ge=4096, le=1024**2 * 512, multiple_of=2)
-    ] = 8192
+    buffer_size: Annotated[int, Field(ge=4096, le=1024**2 * 512, multiple_of=2)] = 8192
     save_cover: bool = False
     cover_save_strategy: CoverSaveStrategy = CoverSaveStrategy.DEFAULT
 
@@ -315,7 +311,7 @@ class TaskOptions(BaseModel):
 
 class TaskSettings(TaskOptions):
     # must use the real room id rather than the short room id!
-    room_id: Annotated[int, Field(ge=1, lt=2**32)]
+    room_id: Annotated[int, Field(ge=1)]
     enable_monitor: bool = True
     enable_recorder: bool = True
 
@@ -351,8 +347,7 @@ class SpaceSettings(BaseModel):
 
     @validator('space_threshold')
     def _validate_threshold(cls, value: int) -> int:
-        allowed_values = frozenset(1024**3 *
-                                   i for i in (1, 3, 5, 10, 20, 50, 100))
+        allowed_values = frozenset(1024**3 * i for i in (1, 3, 5, 10, 20, 50, 100))
         cls._validate_with_collection(value, allowed_values)
         return value
 
