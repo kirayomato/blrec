@@ -46,7 +46,7 @@ _old_backup_count: Optional[int] = None
 def configure_logger(
     log_dir: str,
     *,
-    console_log_level: LOG_LEVEL = 'INFO',
+    console_log_level: LOG_LEVEL = 'DEBUG',
     backup_count: Optional[int] = None,
 ) -> None:
     global _console_handler_id, _file_handler_id
