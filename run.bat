@@ -7,7 +7,7 @@ set PATH=.\ffmpeg\bin;.\python;%PATH%
 set no_proxy=*
 
 @REM 主机和端口绑定，可以按需修改。
-set host=0.0.0.0
+set host=none
 set port=2233
 
 @REM 关于 api key
