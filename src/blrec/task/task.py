@@ -39,16 +39,16 @@ __all__ = ('RecordTask',)
 
 class RecordTask(LiveEventListener):
     def __init__(
-            self,
-            room_id: int,
-            *,
-            out_dir: str = '',
-            path_template: str = '',
-            cookie: str = '',
-            user_agent: str = '',
-            remux_to_mp4: bool = False,
-            inject_extra_metadata: bool = True,
-            delete_source: DeleteStrategy = DeleteStrategy.AUTO,
+        self,
+        room_id: int,
+        *,
+        out_dir: str = '',
+        path_template: str = '',
+        cookie: str = '',
+        user_agent: str = '',
+        remux_to_mp4: bool = False,
+        inject_extra_metadata: bool = True,
+        delete_source: DeleteStrategy = DeleteStrategy.AUTO,
     ) -> None:
         super().__init__()
 
@@ -525,7 +525,9 @@ class RecordTask(LiveEventListener):
         if '电台' in self._live.room_info.area_name:
             if self._recorder_enabled or self._recorder.danmaku_only:
                 return
-            self._logger.info(f'Detected {self._live.room_info.area_name}, Start temporarily recording')
+            self._logger.info(
+                f'Detected {self._live.room_info.area_name}, Start temporarily recording'
+            )
             await self.enable_recorder()
             self.temp_start = 1
 
@@ -539,12 +541,12 @@ class RecordTask(LiveEventListener):
             self.temp_start = 0
 
     async def on_live_status_delay(self) -> None:
-        rec = self._recorder_enabled
-        await self.disable_recorder(False)
+        is_record = self._recorder_enabled
+        await self.disable_recorder()
         await self.disable_monitor()
         await asyncio.sleep(1)
         await self.enable_monitor()
-        if rec:
+        if is_record:
             await self.enable_recorder()
 
     def _setup_live_event_submitter(self) -> None:
