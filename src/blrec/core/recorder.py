@@ -392,7 +392,9 @@ class Recorder(
     def cut_stream(self) -> bool:
         if self.danmaku_only:
             loop = asyncio.get_running_loop()
-            future = asyncio.run_coroutine_threadsafe(self._restart_dumper(), loop)
+            future = asyncio.run_coroutine_threadsafe(
+                self._restart_dumper(reconnect=False), loop
+            )
             return True
         else:
             return self._stream_recorder.cut_stream()
@@ -414,7 +416,7 @@ class Recorder(
         if not self.danmaku_only:
             await self._stop_recording()
         else:
-            await self._restart_dumper()
+            await self._restart_dumper(reconnect=False)
 
     async def on_live_stream_available(self, live: Live) -> None:
         self._logger.debug('The live stream becomes available')
@@ -433,7 +435,9 @@ class Recorder(
         self._stream_recorder.update_progress_bar_info()
 
     async def on_live_area_changed(self, old_area: str) -> None:
-        logger.info(f"Live Area Changed: {old_area} -> {self._live.room_info.parent_area_name}")
+        logger.info(
+            f"Live Area Changed: {old_area} -> {self._live.room_info.parent_area_name}"
+        )
         if self.recording:
             self.cut_stream()
 
@@ -492,29 +496,29 @@ class Recorder(
     async def _start_dumper(self) -> None:
         self._danmaku_dumper._statistics.reset()
         date = datetime.now()
-        path, timestamp = PathProvider(
-            self.live, self.out_dir, self.path_template)(
-            date.timestamp())
+        path, timestamp = PathProvider(self.live, self.out_dir, self.path_template)(
+            date.timestamp()
+        )
         await self._danmaku_dumper.on_video_file_created(path, timestamp)
 
-    async def _restart_dumper(self) -> None:
+    async def _restart_dumper(self, reconnect=True) -> None:
         await self._danmaku_dumper._stop_dumping()
-        await self._danmaku_client.reconnect()
+        if reconnect:
+            await self._danmaku_client.reconnect()
         await self._start_dumper()
 
     async def _start_dumping(self) -> None:
         self._recording = True
         self._danmaku_dumper.enable()
         self._danmaku_receiver.start()
-        await self._start_dumper()
         while True:
+            await self._start_dumper()
             date = datetime.now()
             t0 = datetime(date.year, date.month, date.day) + timedelta(days=1)
             t1 = (t0 - date).total_seconds()
-            await asyncio.sleep(t1)
+            await asyncio.sleep(t1 + 1)
             await self._danmaku_dumper._stop_dumping()
             self._danmaku_dumper.clear_files()
-            await self._start_dumper()
 
     async def _start_recording(self) -> None:
         if self._recording:
@@ -572,9 +576,7 @@ class Recorder(
         user_info = self._live.user_info
 
         if room_info.live_start_time > 0:
-            live_start_time = str(
-                datetime.fromtimestamp(
-                    room_info.live_start_time))
+            live_start_time = str(datetime.fromtimestamp(room_info.live_start_time))
         else:
             live_start_time = 'NULL'
 
