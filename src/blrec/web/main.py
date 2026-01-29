@@ -101,7 +101,7 @@ async def on_startup() -> None:
 
 
 @api.on_event('shutdown')
-async def on_shuntdown() -> None:
+async def on_shutdown() -> None:
     _settings.dump()
     await app.exit()
 
