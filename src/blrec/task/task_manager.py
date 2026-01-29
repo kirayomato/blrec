@@ -51,7 +51,7 @@ class RecordTaskManager:
                 await self.add_task(settings)
             except Exception as e:
                 submit_exception(e)
-            await asyncio.sleep(uniform(0.5,1.5))
+            await asyncio.sleep(uniform(1, 3))
         logger.info('Load all tasks complete')
 
     async def destroy_all_tasks(self) -> None:

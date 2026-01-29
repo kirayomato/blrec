@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+from random import uniform
 from typing import TYPE_CHECKING, Optional, cast
 
 from ..exception import NotFoundError
@@ -33,6 +34,7 @@ from .models import (
 )
 from .typing import KeySetOfSettings
 from loguru import logger
+
 if TYPE_CHECKING:
     from ..application import Application
 
@@ -278,6 +280,7 @@ class SettingsManager:
     async def apply_header_settings(self) -> None:
         for settings in self._settings.tasks:
             await self.apply_task_header_settings(settings.room_id, settings.header)
+            await asyncio.sleep(uniform(1, 3))
 
     def apply_danmaku_settings(self) -> None:
         for settings in self._settings.tasks:
