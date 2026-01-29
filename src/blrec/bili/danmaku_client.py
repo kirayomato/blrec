@@ -58,14 +58,14 @@ class DanmakuClient(EventEmitter[DanmakuListener], AsyncStoppableMixin):
     _HEARTBEAT_INTERVAL: Final[int] = 30
 
     def __init__(
-            self,
-            session: ClientSession,
-            appapi: AppApi,
-            webapi: WebApi,
-            room_id: int,
-            *,
-            max_retries: int = 60,
-            headers: Optional[Dict[str, str]] = None,
+        self,
+        session: ClientSession,
+        appapi: AppApi,
+        webapi: WebApi,
+        room_id: int,
+        *,
+        max_retries: int = 60,
+        headers: Optional[Dict[str, str]] = None,
     ) -> None:
         super().__init__()
         self._logger_context = {'room_id': room_id}
@@ -90,9 +90,9 @@ class DanmakuClient(EventEmitter[DanmakuListener], AsyncStoppableMixin):
         self._protover: int = WS.BODY_PROTOCOL_VERSION_BROTLI
         if ver := os.environ.get('BLREC_DANMAKU_PROTOCOL_VERSION'):
             if ver in (
-                    str(WS.BODY_PROTOCOL_VERSION_NORMAL),
-                    str(WS.BODY_PROTOCOL_VERSION_DEFLATE),
-                    str(WS.BODY_PROTOCOL_VERSION_BROTLI),
+                str(WS.BODY_PROTOCOL_VERSION_NORMAL),
+                str(WS.BODY_PROTOCOL_VERSION_DEFLATE),
+                str(WS.BODY_PROTOCOL_VERSION_BROTLI),
             ):
                 self._protover = int(ver)
             else:
@@ -298,7 +298,9 @@ class DanmakuClient(EventEmitter[DanmakuListener], AsyncStoppableMixin):
             await asyncio.sleep(self._HEARTBEAT_INTERVAL)
 
     async def _create_message_loop(self) -> None:
-        self._message_loop_task = asyncio.create_task(self._message_loop(self._client_number))
+        self._message_loop_task = asyncio.create_task(
+            self._message_loop(self._client_number)
+        )
         self._message_loop_task.add_done_callback(exception_callback)
         self._logger.debug('Created message loop')
 
@@ -312,7 +314,7 @@ class DanmakuClient(EventEmitter[DanmakuListener], AsyncStoppableMixin):
     @async_task_with_logger_context
     async def _message_loop(self, num) -> None:
         self._logger.debug(f'message loop:{num} start')
-        while asyncio.current_task()==self._message_loop_task:
+        while asyncio.current_task() == self._message_loop_task:
             for msg in await self._receive():
                 await self._dispatch_message(msg)
         self._logger.debug(f'message loop:{num} exit')
@@ -431,7 +433,7 @@ class Frame:
                 plen, hlen, ver, op, _ = struct.unpack_from(
                     Frame.HEADER_FORMAT, data, offset
                 )
-                body = data[hlen + offset: plen + offset]
+                body = data[hlen + offset : plen + offset]
                 msg = body.decode('utf8')
                 msg_list.append(msg)
                 offset += plen
