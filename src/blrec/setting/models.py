@@ -209,7 +209,7 @@ class PostprocessingOptions(BaseModel):
 
 class PostprocessingSettings(PostprocessingOptions):
     remux_to_mp4: bool = False
-    inject_extra_metadata: bool = True
+    inject_extra_metadata: bool = False
     delete_source: DeleteStrategy = DeleteStrategy.AUTO
 
 
