@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import os
 from typing import TYPE_CHECKING, Dict, Iterator, Optional
 
 import aiohttp
@@ -105,7 +106,7 @@ class RecordTaskManager:
 
             if settings.enable_monitor:
                 await task.enable_monitor()
-            if settings.enable_recorder:
+            if settings.enable_recorder or bool(os.environ['BLREC_DANMAKU_ONLY']):
                 await task.enable_recorder()
         except BaseException as e:
             logger.error(f'Failed to add task {settings.room_id} due to: {repr(e)}')
