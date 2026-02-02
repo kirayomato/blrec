@@ -62,10 +62,11 @@ class Dumper:
 
     def _close_file(self) -> None:
         if self._file is not None and not self._file.closed:
-            self._file.close()
+            _path = self._path
             self.ts0 = self.timestamp
-            logger.debug(f'Closed file: {self._path}')
-            self._file_closed.on_next(self._path)
+            self._file.close()
+            logger.debug(f'Closed file: {_path}')
+            self._file_closed.on_next(_path)
 
     def _dump(self, source: FLVStream) -> FLVStream:
         def subscribe(
