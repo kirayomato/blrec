@@ -157,7 +157,8 @@ class DanmakuClient(EventEmitter[DanmakuListener], AsyncStoppableMixin):
             await self._send_auth()
             reply = await self._recieve_auth_reply()
             await self._handle_auth_reply(reply)
-        except Exception:
+        except Exception as exc:
+            self._logger.debug(f'Failed to connect to server: {repr(exc)}')
             self._host_index += 1
             if self._host_index >= len(self._danmu_info['host_list']):
                 self._host_index = 0
@@ -269,7 +270,7 @@ class DanmakuClient(EventEmitter[DanmakuListener], AsyncStoppableMixin):
         await self._emit('client_disconnected')
 
     async def _close_websocket(self) -> None:
-        with suppress(BaseException):
+        with suppress(Exception):
             await self._ws.close()
 
     def _create_heartbeat_task(self) -> None:
@@ -287,6 +288,8 @@ class DanmakuClient(EventEmitter[DanmakuListener], AsyncStoppableMixin):
         while True:
             try:
                 await self._ws.send_bytes(data)
+            except asyncio.CancelledError:
+                raise
             except Exception as exc:
                 if self.stopped or not self._connected:
                     raise asyncio.CancelledError
@@ -328,6 +331,8 @@ class DanmakuClient(EventEmitter[DanmakuListener], AsyncStoppableMixin):
         while True:
             try:
                 wsmsg = await self._ws.receive(timeout=self._HEARTBEAT_INTERVAL * 2)
+            except asyncio.CancelledError:
+                raise
             except Exception as e:
                 await self._handle_receive_error(e)
             else:
@@ -375,6 +380,8 @@ class DanmakuClient(EventEmitter[DanmakuListener], AsyncStoppableMixin):
         self._retry_delay = 0
 
     async def _retry(self) -> None:
+        if self.stopped:
+            return
         if self._retry_count < self._MAX_RETRIES:
             if self._retry_delay > 0:
                 self._logger.debug(
