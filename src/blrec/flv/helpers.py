@@ -4,8 +4,13 @@ from typing import Any, Dict, Iterable
 
 from .io import FlvReader
 from .common import (
-    is_audio_tag, is_metadata_tag, is_script_tag, is_video_tag, read_tags,
-    parse_metadata, find_metadata_tag,
+    is_audio_tag,
+    is_metadata_tag,
+    is_script_tag,
+    is_video_tag,
+    read_tags,
+    parse_metadata,
+    find_metadata_tag,
 )
 from .operators import JoinPoint
 from .utils import format_timestamp
@@ -28,15 +33,13 @@ def get_extra_metadata(flv_path: str) -> Dict[str, Any]:
 
 
 def make_comment_for_joinpoints(join_points: Iterable[JoinPoint]) -> str:
-    return (
-        '流中断拼接详情\n' +
-        '\n'.join((
+    return '流中断拼接详情\n' + '\n'.join(
+        (
             '时间戳：{}, 无缝拼接：{}'.format(
-                format_timestamp(int(p.timestamp)),
-                '是' if p.seamless else '否',
+                format_timestamp(int(p.timestamp)), '是' if p.seamless else '否'
             )
             for p in join_points
-        ))
+        )
     )
 
 
@@ -75,14 +78,12 @@ def is_valid_flv_file(path: str) -> bool:
                 pass
 
             if (
-                has_metadata_tag and (
-                    flv_header.has_video() ==
-                    has_video_header_tag ==
-                    has_video_data_tag
-                ) and (
-                    flv_header.has_audio() ==
-                    has_audio_header_tag ==
-                    has_audio_data_tag
+                has_metadata_tag
+                and (
+                    flv_header.has_video() == has_video_header_tag == has_video_data_tag
+                )
+                and (
+                    flv_header.has_audio() == has_audio_header_tag == has_audio_data_tag
                 )
             ):
                 return True
