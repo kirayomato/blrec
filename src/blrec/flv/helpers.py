@@ -20,10 +20,14 @@ from ..path import extra_metadata_path
 def get_metadata(path: str) -> Dict[str, Any]:
     with open(path, mode='rb') as file:
         reader = FlvReader(file)
-        reader.read_header()
-        if (tag := find_metadata_tag(list(read_tags(reader, 5)))):
+        try:
+            reader.read_header()
+        except Exception as e:
+            raise EOFError(f"Failed to read FLV header from {path}: {e}")
+
+        if tag := find_metadata_tag(list(read_tags(reader, 5))):
             return parse_metadata(tag)
-        raise EOFError
+        raise EOFError(f"No metadata tag found in {path}")
 
 
 def get_extra_metadata(flv_path: str) -> Dict[str, Any]:

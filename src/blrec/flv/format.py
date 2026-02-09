@@ -45,13 +45,16 @@ class FlvParser:
         self._reader = StructReader(stream)
 
     def parse_header(self) -> FlvHeader:
-        signature = self._reader.read(3).decode()
-        if signature != 'FLV':
-            raise FlvHeaderError(signature)
-        version = self._reader.read_ui8()
-        type_flag = self._reader.read_ui8()
-        data_offset = self._reader.read_ui32()
-        return FlvHeader(signature, version, type_flag, data_offset)
+        try:
+            signature = self._reader.read(3).decode()
+            if signature != 'FLV':
+                raise FlvHeaderError(signature)
+            version = self._reader.read_ui8()
+            type_flag = self._reader.read_ui8()
+            data_offset = self._reader.read_ui32()
+            return FlvHeader(signature, version, type_flag, data_offset)
+        except (EOFError, UnicodeDecodeError) as e:
+            raise FlvHeaderError(f"Invalid FLV header: {e}")
 
     def parse_previous_tag_size(self) -> int:
         return self._reader.read_ui32()

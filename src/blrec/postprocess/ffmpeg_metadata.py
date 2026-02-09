@@ -34,7 +34,18 @@ async def make_metadata_file(video_path: str) -> str:
 
 
 async def _make_metadata_content_for_flv(flv_path: str) -> str:
-    metadata = await get_metadata(flv_path)
+    try:
+        metadata = await get_metadata(flv_path)
+    except Exception as e:
+        logger.error(f'Failed to get metadata from FLV file {flv_path}: {e}')
+        # Return minimal metadata if file is corrupted
+        metadata = {
+            'Title': os.path.basename(flv_path),
+            'Artist': 'Unknown',
+            'Date': '',
+            'description': '',
+        }
+
     try:
         extra_metadata = await get_extra_metadata(flv_path)
     except Exception as e:
