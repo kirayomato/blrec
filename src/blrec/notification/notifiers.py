@@ -55,8 +55,11 @@ __all__ = (
 from loguru import logger
 
 
-def resource_string(package, resource):
-    return read_text(package, resource).encode('utf-8')
+def resource_string(resource):
+    """读取资源文件"""
+    # 使用模块的包名而不是模块名
+    package = __package__ or __name__.rsplit('.', 1)[0]
+    return read_text(package, resource).decode('utf-8')
 
 
 class Notifier(SwitchableMixin, ABC):
@@ -295,7 +298,7 @@ class MessageNotifier(Notifier, ABC):
             relpath = '../data/message_templates/html/live-began.html'
         else:
             relpath = '../data/message_templates/text/live-began.txt'
-        return resource_string(__name__, relpath).decode('utf-8')
+        return resource_string(relpath)
 
     def _get_ended_message_title(self) -> str:
         return self.ended_message_title or ENDED_MESSAGE_TITLE
@@ -310,7 +313,7 @@ class MessageNotifier(Notifier, ABC):
             relpath = '../data/message_templates/html/live-ended.html'
         else:
             relpath = '../data/message_templates/text/live-ended.txt'
-        return resource_string(__name__, relpath).decode('utf-8')
+        return resource_string(relpath)
 
     def _get_space_message_title(self) -> str:
         return self.space_message_title or SPACE_MESSAGE_TITLE
@@ -325,7 +328,7 @@ class MessageNotifier(Notifier, ABC):
             relpath = '../data/message_templates/html/space-no-enough.html'
         else:
             relpath = '../data/message_templates/text/space-no-enough.txt'
-        return resource_string(__name__, relpath).decode('utf-8')
+        return resource_string(relpath)
 
     def _get_error_message_title(self) -> str:
         return self.error_message_title or ERROR_MESSAGE_TITLE
@@ -340,7 +343,7 @@ class MessageNotifier(Notifier, ABC):
             relpath = '../data/message_templates/html/error.html'
         else:
             relpath = '../data/message_templates/text/error.txt'
-        return resource_string(__name__, relpath).decode('utf-8')
+        return resource_string(relpath)
 
 
 class EmailNotifier(MessageNotifier):
