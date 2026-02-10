@@ -1,4 +1,5 @@
 import os
+from contextlib import asynccontextmanager
 from typing import Optional, Tuple
 
 from brotli_asgi import BrotliMiddleware
@@ -38,11 +39,23 @@ else:
     security.api_key = _env_settings.api_key
     _dependencies = [Depends(security.authenticate)]
 
+
+@asynccontextmanager
+async def lifespan(fastapi_app: FastAPI):
+    # Startup
+    await app.launch()
+    yield
+    # Shutdown
+    _settings.dump()
+    await app.exit()
+
+
 api = FastAPI(
     title='Bilibili live streaming recorder web API',
     description='Web API to communicate with the backend application',
     version='v1',
     dependencies=_dependencies,
+    lifespan=lifespan,
 )
 
 api.add_middleware(BaseHrefMiddleware)
@@ -93,17 +106,6 @@ async def validation_error_handler(
             ResponseMessage(code=status.HTTP_406_NOT_ACCEPTABLE, message=str(exc))
         ),
     )
-
-
-@api.on_event('startup')
-async def on_startup() -> None:
-    await app.launch()
-
-
-@api.on_event('shutdown')
-async def on_shutdown() -> None:
-    _settings.dump()
-    await app.exit()
 
 
 tasks.app = app

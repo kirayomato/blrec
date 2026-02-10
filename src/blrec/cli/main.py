@@ -105,6 +105,7 @@ def cli_main(
         log_config=logging_config,
         log_level='info',
         access_log=False,
+        timeout_graceful_shutdown=30,
     )
 
 
