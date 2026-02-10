@@ -9,7 +9,7 @@ from blrec.bili.models import RoomInfo, UserInfo
 from blrec.bili.typing import QualityNumber, StreamFormat
 from blrec.core.cover_downloader import CoverSaveStrategy
 from blrec.postprocess import DeleteStrategy, PostprocessorStatus
-from blrec.postprocess.typing import Progress
+from blrec.postprocess._typing import Progress
 from blrec.setting.typing import RecordingMode
 
 

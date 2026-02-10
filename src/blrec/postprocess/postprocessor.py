@@ -32,7 +32,7 @@ from .ffmpeg_metadata import make_metadata_file
 from .helpers import discard_file, files_related, get_extra_metadata
 from .models import DeleteStrategy, PostprocessorStatus
 from .remux import RemuxingProgress, RemuxingResult, remux_video
-from .typing import Progress
+from ._typing import Progress
 
 __all__ = (
     'Postprocessor',
