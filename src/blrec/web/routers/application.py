@@ -31,4 +31,4 @@ async def restart_app() -> ResponseMessage:
 
 @router.post('/exit', status_code=status.HTTP_204_NO_CONTENT)
 async def exit_app() -> None:
-    signal.raise_signal(signal.SIGINT)
+    await app.exit()
