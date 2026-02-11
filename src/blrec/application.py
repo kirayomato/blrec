@@ -58,6 +58,7 @@ class Application:
         self._out_dir = settings.output.out_dir
         self._settings_manager = SettingsManager(self, settings)
         self._task_manager = RecordTaskManager(self._settings_manager)
+        self._stop = False
 
     @property
     def info(self) -> AppInfo:
@@ -98,6 +99,7 @@ class Application:
             await self.exit()
 
     async def launch(self) -> None:
+        self._stop = False
         self._setup_logger()
         logger.info('Launching Application...')
         self._setup()
@@ -122,6 +124,8 @@ class Application:
         logger.info('Aborted Application')
 
     async def _exit(self, force: bool = False) -> None:
+        if self._stop:
+            return
         if hasattr(self, '_loading_task'):
             self._loading_task.cancel()
             with suppress(asyncio.CancelledError):
@@ -129,6 +133,7 @@ class Application:
         await self._task_manager.stop_all_tasks(force=force)
         await self._task_manager.destroy_all_tasks()
         self._destroy()
+        self._stop = True
 
     async def restart(self) -> None:
         logger.info('Restarting Application...')
