@@ -23,35 +23,30 @@ from blrec.logging.context import async_task_with_logger_context
 from .helpers import get_nav
 
 from ..event.event_emitter import EventEmitter, EventListener
-from ..exception import exception_callback
+from ..exception import exception_callback, submit_exception
 from ..utils.mixins import AsyncStoppableMixin
 from ..utils.string import extract_buvid_from_cookie, extract_uid_from_cookie
-from .api import AppApi, WebApi
+from .api import AppApi, WebApi, generate_buvid3
 from .exceptions import DanmakuClientAuthError, ApiRequestError
 from .typing import ApiPlatform, Danmaku
 
 __all__ = 'DanmakuClient', 'DanmakuListener', 'Danmaku', 'DanmakuCommand'
 
 
-class CookiesExpiredException(Exception):
+class CookieExpiredException(Exception):
     pass
 
 
 class DanmakuListener(EventListener):
-    async def on_client_connected(self) -> None:
-        ...
+    async def on_client_connected(self) -> None: ...
 
-    async def on_client_disconnected(self) -> None:
-        ...
+    async def on_client_disconnected(self) -> None: ...
 
-    async def on_client_reconnected(self) -> None:
-        ...
+    async def on_client_reconnected(self) -> None: ...
 
-    async def on_danmaku_received(self, danmu: Danmaku) -> None:
-        ...
+    async def on_danmaku_received(self, danmu: Danmaku) -> None: ...
 
-    async def on_error_occurred(self, error: Exception) -> None:
-        ...
+    async def on_error_occurred(self, error: Exception) -> None: ...
 
 
 class DanmakuClient(EventEmitter[DanmakuListener], AsyncStoppableMixin):
@@ -130,10 +125,26 @@ class DanmakuClient(EventEmitter[DanmakuListener], AsyncStoppableMixin):
         await self.start()
         self._logger.debug('Restarted danmaku client')
 
+    async def check_cookie(self):
+        try:
+            json_res = await get_nav(self.headers['Cookie'])
+            assert json_res['code'] != WS.AUTH_TOKEN_ERROR, (
+                json_res['code'],
+                json_res['message'],
+            )
+        except Exception as exc:
+            self._logger.error(f"Cookie Expired: {repr(exc)}")
+            submit_exception(CookieExpiredException("Cookie失效"))
+            return False
+        else:
+            return True
+
     async def reconnect(self) -> None:
         if self.stopped:
             return
-
+        if not await self.check_cookie():
+            self._logger.warning("Cookie expired, skip reconnect server")
+            return
         self._logger.debug('Reconnecting...')
         await self._disconnect()
         await asyncio.sleep(1)
@@ -149,9 +160,10 @@ class DanmakuClient(EventEmitter[DanmakuListener], AsyncStoppableMixin):
     )
     async def _connect(self) -> None:
         self._logger.debug('Connecting to server...')
-        json_res = await get_nav(self.headers['Cookie'])
-        if json_res['code'] == WS.AUTH_TOKEN_ERROR:
-            raise CookiesExpiredException("Cookies失效")
+        if not await self.check_cookie():
+            self._uid = 0
+            self._buvid = generate_buvid3()
+            self.headers['Cookie'] = f"buvid3={self._buvid}"
         try:
             await self._connect_websocket()
             await self._send_auth()
@@ -258,7 +270,7 @@ class DanmakuClient(EventEmitter[DanmakuListener], AsyncStoppableMixin):
             if isinstance(exc, ApiRequestError):
                 if exc.code == -352:
                     self.webapi._update_wbi_key()
-                    raise CookiesExpiredException("Cookies失效，触发风控")
+                    submit_exception(CookieExpiredException("Cookie失效，触发风控"))
         else:
             self._logger.debug('Danmu info updated')
 

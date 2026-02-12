@@ -1,8 +1,9 @@
 import asyncio
 import hashlib
+import random
 import time
 from abc import ABC
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, Final, List, Mapping, Optional
 from urllib.parse import urlencode
 
@@ -339,3 +340,24 @@ class WebApi(BaseApi):
         sub_key = wbi.extract_key(nav['data']['wbi_img']['sub_url'])
         self.__class__._wbi_key = wbi.make_key(img_key, sub_key)
         self.__class__._wbi_key_mtime = time.monotonic()
+
+
+def generate_buvid3() -> str:
+    chars = "0123456789ABCDEF"
+    # 生成随机部分
+    random_part = ""
+    random_part += "".join(random.choice(chars) for _ in range(8)) + "-"
+    random_part += "".join(random.choice(chars) for _ in range(4)) + "-"
+    random_part += "".join(random.choice(chars) for _ in range(4)) + "-"
+    random_part += "".join(random.choice(chars) for _ in range(4)) + "-"
+    random_part += "".join(random.choice(chars) for _ in range(12))
+
+    # 获取当前时间戳（毫秒）
+    now = int(datetime.now(timezone.utc).timestamp() * 1000)
+    # 取时间戳的后5位（对100000取模并格式化为5位数）
+    timestamp_part = f"{now % 100000:05d}"
+
+    # 组合完整buvid3
+    buvid3 = random_part + timestamp_part + "infoc"
+
+    return buvid3
