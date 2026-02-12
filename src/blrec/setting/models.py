@@ -448,8 +448,8 @@ class NotifierSettings(BaseModel):
 
 
 class NotificationSettings(BaseModel):
-    notify_began: bool = True
-    notify_ended: bool = True
+    notify_began: bool = False
+    notify_ended: bool = False
     notify_error: bool = True
     notify_space: bool = True
 
@@ -578,7 +578,7 @@ class PushdeerNotificationSettings(
     PushdeerSettings,
     NotifierSettings,
     NotificationSettings,
-    PushplusMessageTemplateSettings,
+    PushdeerMessageTemplateSettings,
 ):
     pass
 

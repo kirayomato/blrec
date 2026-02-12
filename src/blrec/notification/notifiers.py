@@ -16,6 +16,7 @@ from tenacity import (
     retry_if_exception,
     wait_exponential,
     stop_after_attempt,
+    wait_fixed,
 )
 
 from ..event import (
@@ -59,7 +60,7 @@ def resource_string(resource):
     """读取资源文件"""
     # 使用模块的包名而不是模块名
     package = __package__ or __name__.rsplit('.', 1)[0]
-    return read_text(package, resource).decode('utf-8')
+    return read_text(package, resource)
 
 
 class Notifier(SwitchableMixin, ABC):
@@ -266,17 +267,20 @@ class MessageNotifier(Notifier, ABC):
     async def _send_message_async(
         self, title: str, content: str, msg_type: MessageType
     ) -> None:
-        if time() - self.provider.last_send < 30:
+        _time, _title = self.provider.last_send
+        if title == _title and time() - _time < self.provider.freq_same:
             return
-        self.provider.last_send = time()
+        if time() - _time < self.provider.freq_limit:
+            await asyncio.sleep(self.provider.freq_limit)
         try:
             async for attempt in AsyncRetrying(
                 reraise=True,
-                stop=stop_after_attempt(5),
-                wait=wait_exponential(multiplier=1, max=10),
+                stop=stop_after_attempt(3),
+                wait=wait_fixed(self.provider.freq_limit),
                 retry=retry_if_exception(lambda e: not isinstance(e, ValueError)),
             ):
                 with attempt:
+                    self.provider.last_send = time(), title
                     await self.provider.send_message(title, content, msg_type)
         except Exception as e:
             logger.warning(

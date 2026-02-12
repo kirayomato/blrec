@@ -31,15 +31,17 @@ __all__ = (
 
 
 class MessagingProvider(Singleton, ABC):
+    freq_limit = 5
+    freq_same = 600
+
     def __init__(self) -> None:
         super().__init__()
-        self.last_send = 0
+        self.last_send = 0, ""
 
     @abstractmethod
     async def send_message(
         self, title: str, content: str, msg_type: MessageType
-    ) -> None:
-        ...
+    ) -> None: ...
 
 
 class EmailService(MessagingProvider):
@@ -99,6 +101,8 @@ class EmailService(MessagingProvider):
 
 
 class Serverchan(MessagingProvider):
+    freq_limit = 15
+
     def __init__(self, sendkey: str = '') -> None:
         super().__init__()
         self.sendkey = sendkey
@@ -173,6 +177,7 @@ class PushplusResponse(TypedDict):
 
 
 class Pushplus(MessagingProvider):
+    freq_limit = 15
     url = 'http://www.pushplus.plus/send'
 
     def __init__(self, token: str = '', topic: str = '') -> None:
