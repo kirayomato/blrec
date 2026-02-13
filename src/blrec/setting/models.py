@@ -453,6 +453,8 @@ class GotifySettings(BaseModel):
 
     @validator('gotify_url')
     def _validate_gotify_url(cls, value: str) -> str:
+        if value == '':
+            return value
         if not value.startswith("http"):
             value = "http://" + value
         value = value.rstrip('/')
