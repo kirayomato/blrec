@@ -2,6 +2,7 @@ import asyncio
 import os
 from abc import ABC, abstractmethod
 from datetime import datetime
+from socket import gethostname
 from time import time
 from typing import Final, Optional, Tuple
 
@@ -274,6 +275,8 @@ class MessageNotifier(Notifier, ABC):
             return
         if time() - _time < self.provider.freq_limit:
             await asyncio.sleep(self.provider.freq_limit)
+        hostname = gethostname()
+        content += f"\n\nfrom: {hostname}"
         try:
             async for attempt in AsyncRetrying(
                 reraise=True,
