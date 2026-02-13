@@ -27,6 +27,7 @@ __all__ = (
     'Pushplus',
     'Telegram',
     'Bark',
+    'Gotify',
 )
 
 
@@ -307,3 +308,54 @@ class Bark(MessagingProvider):
                 response = cast(BarkResponse, await res.json())
                 if response['code'] != 200:
                     raise HTTPException(response['message'])
+
+
+class GotifyResponse(TypedDict):
+    id: int
+    appid: int
+    message: str
+    title: str
+    priority: int
+    date: str
+    extras: Dict[str, Any]
+
+
+class Gotify(MessagingProvider):
+    freq_limit = 1
+
+    def __init__(self, gotify_url: str = '', gotify_token: str = '') -> None:
+        super().__init__()
+        self.gotify_url = gotify_url
+        self.gotify_token = gotify_token
+
+    async def send_message(
+        self, title: str, content: str, msg_type: MessageType
+    ) -> None:
+        self._check_parameters()
+        await self._post_message(title, content, msg_type)
+
+    def _check_parameters(self) -> None:
+        if not self.gotify_url:
+            raise ValueError('No gotify URL supplied')
+        if not self.gotify_token:
+            raise ValueError('No gotify token supplied')
+
+    async def _post_message(
+        self, title: str, content: str, msg_type: MessageType
+    ) -> None:
+        priority = 6
+        payload = {
+            "title": title,
+            "message": content,
+            "priority": priority,
+            "extras": {"client::display": {"contentType": "text/markdown"}},
+        }
+
+        push_url = f"{self.gotify_url}/message?token={self.gotify_token}"
+
+        async with aiohttp.ClientSession(raise_for_status=True) as session:
+            async with session.post(push_url, json=payload) as res:
+                response = cast(GotifyResponse, await res.json())
+                # 验证响应是否包含必需的字段
+                if 'id' not in response:
+                    raise HTTPException(f"Gotify push error: {response}")

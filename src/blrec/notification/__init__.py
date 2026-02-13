@@ -7,6 +7,7 @@ from .notifiers import (
     PushplusNotifier,
     TelegramNotifier,
     BarkNotifier,
+    GotifyNotifier,
 )
 from .providers import (
     MessagingProvider,
@@ -16,6 +17,7 @@ from .providers import (
     Pushplus,
     Telegram,
     Bark,
+    Gotify,
 )
 
 
@@ -27,7 +29,7 @@ __all__ = (
     'Pushplus',
     'Telegram',
     'Bark',
-
+    'Gotify',
     'Notifier',
     'MessageNotifier',
     'EmailNotifier',
@@ -36,4 +38,5 @@ __all__ = (
     'PushplusNotifier',
     'TelegramNotifier',
     'BarkNotifier',
+    'GotifyNotifier',
 )

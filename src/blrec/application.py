@@ -17,6 +17,7 @@ from .flv.operators import StreamProfile
 from .notification import (
     BarkNotifier,
     EmailNotifier,
+    GotifyNotifier,
     PushdeerNotifier,
     PushplusNotifier,
     ServerchanNotifier,
@@ -334,12 +335,14 @@ class Application:
         self._pushplus_notifier = PushplusNotifier()
         self._telegram_notifier = TelegramNotifier()
         self._bark_notifier = BarkNotifier()
+        self._gotify_notifier = GotifyNotifier()
         self._settings_manager.apply_email_notification_settings()
         self._settings_manager.apply_serverchan_notification_settings()
         self._settings_manager.apply_pushdeer_notification_settings()
         self._settings_manager.apply_pushplus_notification_settings()
         self._settings_manager.apply_telegram_notification_settings()
         self._settings_manager.apply_bark_notification_settings()
+        self._settings_manager.apply_gotify_notification_settings()
 
     def _setup_webhooks(self) -> None:
         self._webhook_emitter = WebHookEmitter()
@@ -372,12 +375,14 @@ class Application:
         self._pushplus_notifier.disable()
         self._telegram_notifier.disable()
         self._bark_notifier.disable()
+        self._gotify_notifier.disable()
         del self._email_notifier
         del self._serverchan_notifier
         del self._pushdeer_notifier
         del self._pushplus_notifier
         del self._telegram_notifier
         del self._bark_notifier
+        del self._gotify_notifier
 
     def _destroy_webhooks(self) -> None:
         self._webhook_emitter.disable()

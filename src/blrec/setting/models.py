@@ -53,6 +53,7 @@ __all__ = (
     'PushplusSettings',
     'TelegramSettings',
     'BarkSettings',
+    'GotifySettings',
     'NotifierSettings',
     'NotificationSettings',
     'EmailMessageTemplateSettings',
@@ -61,12 +62,14 @@ __all__ = (
     'PushplusMessageTemplateSettings',
     'TelegramMessageTemplateSettings',
     'BarkMessageTemplateSettings',
+    'GotifyMessageTemplateSettings',
     'EmailNotificationSettings',
     'ServerchanNotificationSettings',
     'PushdeerNotificationSettings',
     'PushplusNotificationSettings',
     'TelegramNotificationSettings',
     'BarkNotificationSettings',
+    'GotifyNotificationSettings',
     'WebHookSettings',
 )
 
@@ -443,6 +446,24 @@ class BarkSettings(BaseModel):
         return value
 
 
+class GotifySettings(BaseModel):
+    gotify_url: str = ''
+    gotify_token: str = ''
+
+    @validator('gotify_url')
+    def _validate_gotify_url(cls, value: str) -> str:
+        if not value.startswith("http"):
+            value = "http://" + value
+        value = value.rstrip('/')
+        if not re.fullmatch(r'https?://[a-zA-Z0-9.-]+(:\d+)?', value):
+            raise ValueError('gotify_url is invalid')
+        return value
+
+    @validator('gotify_token')
+    def _validate_gotify_token(cls, value: str) -> str:
+        return value
+
+
 class NotifierSettings(BaseModel):
     enabled: bool = False
 
@@ -559,6 +580,21 @@ class BarkMessageTemplateSettings(MessageTemplateSettings):
     error_message_content: str = ''
 
 
+class GotifyMessageTemplateSettings(MessageTemplateSettings):
+    began_message_type: MessageType = 'markdown'
+    began_message_title: str = ''
+    began_message_content: str = ''
+    ended_message_type: MessageType = 'markdown'
+    ended_message_title: str = ''
+    ended_message_content: str = ''
+    space_message_type: MessageType = 'markdown'
+    space_message_title: str = ''
+    space_message_content: str = ''
+    error_message_type: MessageType = 'markdown'
+    error_message_title: str = ''
+    error_message_content: str = ''
+
+
 class EmailNotificationSettings(
     EmailSettings, NotifierSettings, NotificationSettings, EmailMessageTemplateSettings
 ):
@@ -603,6 +639,15 @@ class TelegramNotificationSettings(
 
 class BarkNotificationSettings(
     BarkSettings, NotifierSettings, NotificationSettings, BarkMessageTemplateSettings
+):
+    pass
+
+
+class GotifyNotificationSettings(
+    GotifySettings,
+    NotifierSettings,
+    NotificationSettings,
+    GotifyMessageTemplateSettings,
 ):
     pass
 
@@ -655,6 +700,7 @@ class Settings(BaseModel):
     pushplus_notification: PushplusNotificationSettings = PushplusNotificationSettings()
     telegram_notification: TelegramNotificationSettings = TelegramNotificationSettings()
     bark_notification: BarkNotificationSettings = BarkNotificationSettings()
+    gotify_notification: GotifyNotificationSettings = GotifyNotificationSettings()
     webhooks: Annotated[List[WebHookSettings], Field(max_items=50)] = []
 
     @classmethod
@@ -704,9 +750,11 @@ class SettingsIn(BaseModel):
     pushplus_notification: Optional[PushplusNotificationSettings] = None
     telegram_notification: Optional[TelegramNotificationSettings] = None
     bark_notification: Optional[BarkNotificationSettings] = None
+    gotify_notification: Optional[GotifyNotificationSettings] = None
     webhooks: Optional[List[WebHookSettings]] = None
 
 
 class SettingsOut(SettingsIn):
     version: Optional[str] = None
     tasks: Optional[List[TaskSettings]] = None
+    gotify_notification: Optional[GotifyNotificationSettings] = None

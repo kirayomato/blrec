@@ -8,6 +8,7 @@ from ..exception import NotFoundError
 from ..logging import configure_logger
 from ..notification import (
     EmailService,
+    Gotify,
     Notifier,
     Pushdeer,
     Pushplus,
@@ -357,6 +358,14 @@ class SettingsManager:
         self._apply_notification_settings(notifier, settings)
         self._apply_message_template_settings(notifier, settings)
 
+    def apply_gotify_notification_settings(self) -> None:
+        notifier = self._app._gotify_notifier
+        settings = self._settings.gotify_notification
+        self._apply_gotify_settings(notifier.provider)
+        self._apply_notifier_settings(notifier, settings)
+        self._apply_notification_settings(notifier, settings)
+        self._apply_message_template_settings(notifier, settings)
+
     def apply_webhooks_settings(self) -> None:
         webhooks = [WebHook.from_settings(s) for s in self._settings.webhooks]
         self._app._webhook_emitter.webhooks = webhooks
@@ -387,6 +396,10 @@ class SettingsManager:
     def _apply_bark_settings(self, bark: Bark) -> None:
         bark.server = self._settings.bark_notification.server
         bark.pushkey = self._settings.bark_notification.pushkey
+
+    def _apply_gotify_settings(self, gotify: Gotify) -> None:
+        gotify.gotify_url = self._settings.gotify_notification.gotify_url
+        gotify.gotify_token = self._settings.gotify_notification.gotify_token
 
     def _apply_notifier_settings(
         self, notifier: Notifier, settings: NotifierSettings

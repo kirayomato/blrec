@@ -34,6 +34,7 @@ from ..utils.mixins import SwitchableMixin
 from .providers import (
     Bark,
     EmailService,
+    Gotify,
     MessagingProvider,
     Pushdeer,
     Pushplus,
@@ -50,6 +51,7 @@ __all__ = (
     'PushplusNotifier',
     'TelegramNotifier',
     'BarkNotifier',
+    'GotifyNotifier',
 )
 
 
@@ -432,3 +434,15 @@ class BarkNotifier(MessageNotifier):
     def _do_disable(self) -> None:
         super()._do_disable()
         logger.debug('Disabled Bark notifier')
+
+
+class GotifyNotifier(MessageNotifier):
+    provider = Gotify.get_instance()
+
+    def _do_enable(self) -> None:
+        super()._do_enable()
+        logger.debug('Enabled Gotify notifier')
+
+    def _do_disable(self) -> None:
+        super()._do_disable()
+        logger.debug('Disabled Gotify notifier')
