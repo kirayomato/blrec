@@ -79,7 +79,9 @@ class RecordTaskManager:
     async def add_task(self, settings: TaskSettings) -> None:
         logger.info(f'Adding task {settings.room_id}...')
 
-        task = RecordTask(settings.room_id)
+        task = RecordTask(
+            settings.room_id, auto_record_radio=settings.enable_auto_record_radio
+        )
         self._tasks[settings.room_id] = task
 
         try:
@@ -381,6 +383,7 @@ class RecordTaskManager:
             remux_to_mp4=task.remux_to_mp4,
             inject_extra_metadata=task.inject_extra_metadata,
             delete_source=task.delete_source,
+            auto_record_radio=task.auto_record_radio,
         )
 
     def _make_task_data(self, task: RecordTask) -> TaskData:

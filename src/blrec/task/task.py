@@ -49,6 +49,7 @@ class RecordTask(LiveEventListener):
         remux_to_mp4: bool = False,
         inject_extra_metadata: bool = False,
         delete_source: DeleteStrategy = DeleteStrategy.AUTO,
+        auto_record_radio=True,
     ) -> None:
         super().__init__()
 
@@ -69,6 +70,7 @@ class RecordTask(LiveEventListener):
         self.temp_start: bool = 0
         self._logger_context = {'room_id': self._live.room_id}
         self._logger = logger.bind(**self._logger_context)
+        self._auto_record_radio = auto_record_radio
 
     @property
     def ready(self) -> bool:
@@ -439,6 +441,10 @@ class RecordTask(LiveEventListener):
     def delete_source(self, value: DeleteStrategy) -> None:
         self._postprocessor.delete_source = value
 
+    @property
+    def auto_record_radio(self) -> bool:
+        return self._auto_record_radio
+
     def can_cut_stream(self) -> bool:
         return self._recorder.can_cut_stream()
 
@@ -463,6 +469,8 @@ class RecordTask(LiveEventListener):
         await self._danmaku_client.start()
         self._live_monitor.enable()
         self._live_monitor.add_listener(self)
+        if self._live.is_living():
+            await self.on_live_began(self._live)
 
     async def disable_monitor(self) -> None:
         if not self._monitor_enabled:
@@ -522,7 +530,7 @@ class RecordTask(LiveEventListener):
         self._live_monitor = LiveMonitor(self._danmaku_client, self._live)
 
     async def on_live_began(self, live: Live):
-        if '电台' in self._live.room_info.area_name:
+        if '电台' in self._live.room_info.area_name and self._auto_record_radio:
             if self._recorder_enabled or self._recorder.danmaku_only:
                 return
             self._logger.info(

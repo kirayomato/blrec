@@ -74,6 +74,7 @@ class TaskParam:
     buffer_size: int
     save_cover: bool
     cover_save_strategy: CoverSaveStrategy
+    auto_record_radio: bool
     # PostprocessingOptions
     remux_to_mp4: bool
     inject_extra_metadata: bool

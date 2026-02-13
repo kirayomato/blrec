@@ -317,6 +317,7 @@ class TaskSettings(TaskOptions):
     room_id: Annotated[int, Field(ge=1)]
     enable_monitor: bool = True
     enable_recorder: bool = False
+    enable_auto_record_radio: bool = True
 
 
 def log_dir_factory() -> str:
