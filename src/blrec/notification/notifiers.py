@@ -10,7 +10,7 @@ import attr
 import humanize
 from liquid import Environment
 from liquid.filter import math_filter
-from importlib.resources import read_text
+from importlib import resources
 
 from tenacity import (
     AsyncRetrying,
@@ -59,11 +59,9 @@ __all__ = (
 from loguru import logger
 
 
-def resource_string(resource):
+def resource_string(resource: str) -> str:
     """读取资源文件"""
-    # 使用模块的包名而不是模块名
-    package = __package__ or __name__.rsplit('.', 1)[0]
-    return read_text(package, resource)
+    return resources.files('blrec').joinpath(resource).read_text(encoding='utf-8')
 
 
 class Notifier(SwitchableMixin, ABC):
@@ -302,11 +300,11 @@ class MessageNotifier(Notifier, ABC):
             return self.began_message_content
         msg_type = msg_type or self.began_message_type
         if msg_type == 'markdown':
-            relpath = '../data/message_templates/markdown/live-began.md'
+            relpath = 'data/message_templates/markdown/live-began.md'
         elif msg_type == 'html':
-            relpath = '../data/message_templates/html/live-began.html'
+            relpath = 'data/message_templates/html/live-began.html'
         else:
-            relpath = '../data/message_templates/text/live-began.txt'
+            relpath = 'data/message_templates/text/live-began.txt'
         return resource_string(relpath)
 
     def _get_ended_message_title(self) -> str:
@@ -317,11 +315,11 @@ class MessageNotifier(Notifier, ABC):
             return self.ended_message_content
         msg_type = msg_type or self.ended_message_type
         if msg_type == 'markdown':
-            relpath = '../data/message_templates/markdown/live-ended.md'
+            relpath = 'data/message_templates/markdown/live-ended.md'
         elif msg_type == 'html':
-            relpath = '../data/message_templates/html/live-ended.html'
+            relpath = 'data/message_templates/html/live-ended.html'
         else:
-            relpath = '../data/message_templates/text/live-ended.txt'
+            relpath = 'data/message_templates/text/live-ended.txt'
         return resource_string(relpath)
 
     def _get_space_message_title(self) -> str:
@@ -332,11 +330,11 @@ class MessageNotifier(Notifier, ABC):
             return self.space_message_content
         msg_type = msg_type or self.space_message_type
         if msg_type == 'markdown':
-            relpath = '../data/message_templates/markdown/space-no-enough.md'
+            relpath = 'data/message_templates/markdown/space-no-enough.md'
         elif msg_type == 'html':
-            relpath = '../data/message_templates/html/space-no-enough.html'
+            relpath = 'data/message_templates/html/space-no-enough.html'
         else:
-            relpath = '../data/message_templates/text/space-no-enough.txt'
+            relpath = 'data/message_templates/text/space-no-enough.txt'
         return resource_string(relpath)
 
     def _get_error_message_title(self) -> str:
@@ -347,11 +345,11 @@ class MessageNotifier(Notifier, ABC):
             return self.error_message_content
         msg_type = msg_type or self.error_message_type
         if msg_type == 'markdown':
-            relpath = '../data/message_templates/markdown/error.md'
+            relpath = 'data/message_templates/markdown/error.md'
         elif msg_type == 'html':
-            relpath = '../data/message_templates/html/error.html'
+            relpath = 'data/message_templates/html/error.html'
         else:
-            relpath = '../data/message_templates/text/error.txt'
+            relpath = 'data/message_templates/text/error.txt'
         return resource_string(relpath)
 
 
