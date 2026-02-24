@@ -110,6 +110,9 @@ class RecordTaskManager:
                 await task.enable_monitor()
             if settings.enable_recorder or bool(os.environ['BLREC_DANMAKU_ONLY']):
                 await task.enable_recorder()
+            if task._live.is_living():
+                await task.on_live_began(task._live)
+
         except BaseException as e:
             logger.error(f'Failed to add task {settings.room_id} due to: {repr(e)}')
             await task.destroy()

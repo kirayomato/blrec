@@ -2,7 +2,7 @@ import asyncio
 import json
 import re
 import time
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Tuple
 
 import aiohttp
 from jsonpath import jsonpath
@@ -175,9 +175,11 @@ class Live:
 
     async def check_connectivity(self) -> bool:
         try:
-            await self._session.head('https://live.bilibili.com/', timeout=3, headers={
-                'User-Agent': self._user_agent,
-            })
+            await self._session.head(
+                'https://live.bilibili.com/',
+                timeout=3,
+                headers={'User-Agent': self._user_agent},
+            )
             return True
         except Exception as e:
             self._logger.warning(f'Check connectivity failed: {repr(e)}')
@@ -415,3 +417,56 @@ class Live:
 
         string = match.group(1).decode(encoding='utf8')
         return json.loads(string)
+
+    async def get_live_resolution(self) -> Tuple[int, int]:
+        stream_url = await self.get_live_stream_url()
+        cmd = [
+            "ffprobe",
+            "-v",
+            "error",
+            "-select_streams",
+            "v:0",
+            "-show_entries",
+            "stream=width,height",
+            "-of",
+            "csv=s=x:p=0",
+            stream_url,
+        ]
+
+        try:
+            # 创建异步子进程
+            proc = await asyncio.create_subprocess_exec(
+                *cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
+            )
+
+            # 等待执行完成，带超时
+            stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=10)
+
+            # 检查返回码
+            if proc.returncode != 0:
+                error_msg = stderr.decode('utf-8', errors='ignore').strip()
+                self._logger.warning(
+                    f'Failed to get live stream resolution: {error_msg}'
+                )
+                return (0, 0)
+
+            # 解析输出
+            result = stdout.decode('utf-8', errors='ignore').strip()
+            if not result:
+                self._logger.warning(f'Failed to get live stream resolution')
+                return (0, 0)
+
+            # 解析 "1920x1080" 格式
+            width_str, height_str = result.split('x')
+            width = int(width_str)
+            height = int(height_str)
+
+            return (width, height)
+
+        except Exception as e:
+            self._logger.warning(f'Failed to get live stream resolution: {repr(e)}')
+            try:
+                proc.kill()
+                await proc.wait()
+            finally:
+                return (0, 0)
