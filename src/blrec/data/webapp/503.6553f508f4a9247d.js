@@ -90,8 +90,14 @@
                     value: "raw"
                 }],
                 S = [{
+                    label: "\u675c\u6bd4",
+                    value: 3e4,
+                }, {
                     label: "4K",
                     value: 2e4
+                }, {
+                    label: "2K",
+                    value: 1.5e4
                 }, {
                     label: "\u539f\u753b",
                     value: 1e4

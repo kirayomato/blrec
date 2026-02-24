@@ -30,7 +30,9 @@ export type StreamFormat = 'flv' | 'ts' | 'fmp4';
 export type RecordingMode = 'standard' | 'raw';
 
 export type QualityNumber =
+  | 30000 // 杜比 
   | 20000 // 4K
+  | 15000 // 2K
   | 10000 // 原画
   | 401 // 蓝光(杜比)
   | 400 // 蓝光
