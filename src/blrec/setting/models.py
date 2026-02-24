@@ -291,7 +291,9 @@ class OutputSettings(OutputOptions):
 
     @validator('out_dir')
     def _validate_dir(cls, path: str) -> str:
-        if not os.path.isdir(os.path.expanduser(path)):
+        try:
+            os.makedirs(os.path.expanduser(path), exist_ok=True)
+        except:
             raise ValueError(f"'{path}' not a directory")
         return path
 
@@ -333,7 +335,9 @@ class LoggingSettings(BaseModel):
 
     @validator('log_dir')
     def _validate_dir(cls, path: str) -> str:
-        if not os.path.isdir(os.path.expanduser(path)):
+        try:
+            os.makedirs(os.path.expanduser(path), exist_ok=True)
+        except:
             raise ValueError(f"'{path}' not a directory")
         return path
 
