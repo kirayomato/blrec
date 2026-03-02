@@ -388,9 +388,7 @@ class Recorder(
     def cut_stream(self) -> bool:
         if self.danmaku_only:
             loop = asyncio.get_running_loop()
-            future = asyncio.run_coroutine_threadsafe(
-                self._restart_dumper(reconnect=False), loop
-            )
+            future = asyncio.run_coroutine_threadsafe(self._restart_dumper(), loop)
             return True
         else:
             return self._stream_recorder.cut_stream()
@@ -398,9 +396,11 @@ class Recorder(
     async def on_live_began(self, live: Live) -> None:
         self._logger.info('The live has began')
         self._print_live_info()
+
         if not self.danmaku_only:
             await self._start_recording()
         else:
+            await self._reconnect_danmaku()
             await self._restart_dumper()
 
     async def on_live_ended(self, live: Live) -> None:
@@ -412,7 +412,7 @@ class Recorder(
         if not self.danmaku_only:
             await self._stop_recording()
         else:
-            await self._restart_dumper(reconnect=False)
+            await self._restart_dumper()
 
     async def on_live_stream_available(self, live: Live) -> None:
         self._logger.debug('The live stream becomes available')
@@ -497,10 +497,8 @@ class Recorder(
         )
         await self._danmaku_dumper.on_video_file_created(path, timestamp)
 
-    async def _restart_dumper(self, reconnect=True) -> None:
+    async def _restart_dumper(self) -> None:
         await self._danmaku_dumper._stop_dumping()
-        if reconnect:
-            await self._danmaku_client.reconnect()
         await self._start_dumper()
 
     async def _start_dumping(self) -> None:
@@ -520,7 +518,8 @@ class Recorder(
         if self._recording:
             return
         self._recording = True
-        await self._danmaku_client.reconnect()
+
+        await self._reconnect_danmaku()
         if self.save_raw_danmaku:
             self._raw_danmaku_dumper.enable()
             self._raw_danmaku_receiver.start()
@@ -563,6 +562,12 @@ class Recorder(
         self._danmaku_dumper.set_live_start_time(live_start_time)
         self._danmaku_dumper.clear_files()
         self._stream_recorder.clear_files()
+
+    async def _reconnect_danmaku(self) -> None:
+        if await self._danmaku_client.check_cookie():
+            await self._danmaku_client.reconnect()
+        else:
+            self._logger.warning("Cookie expired, skip reconnect server")
 
     def _print_waiting_message(self) -> None:
         self._logger.info('Waiting... until the live starts')

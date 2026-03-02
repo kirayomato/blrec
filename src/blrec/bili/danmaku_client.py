@@ -142,9 +142,7 @@ class DanmakuClient(EventEmitter[DanmakuListener], AsyncStoppableMixin):
     async def reconnect(self) -> None:
         if self.stopped:
             return
-        if not await self.check_cookie():
-            self._logger.warning("Cookie expired, skip reconnect server")
-            return
+
         self._logger.debug('Reconnecting...')
         await self._disconnect()
         await asyncio.sleep(1)
