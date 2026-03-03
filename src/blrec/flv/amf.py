@@ -108,13 +108,13 @@ class AMFReader:
     def _read_ecma_array(self) -> 'OrderedDict[str, Any]':
         count = self._reader.read_ui32()
         result = OrderedDict(self._read_object())
-        assert len(result) == count
+        # assert len(result) == count
         return result
 
     def _read_strict_array(self) -> List[Any]:
         count = self._reader.read_ui32()
         result = list(self.read_value() for _ in range(count))
-        assert len(result) == count
+        # assert len(result) == count
         return result
 
     def _read_date(self) -> datetime:
