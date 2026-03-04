@@ -531,8 +531,15 @@ class RecordTask(LiveEventListener):
 
     async def _should_auto_record(self):
         area = self._live.room_info.area_name
-        w, h = await self._live.get_live_resolution()
-        return ('电台' in area or w < h), area, (w, h)
+        try:
+            w, h = await self._live.get_live_resolution()
+        except Exception as exc:
+            w, h = 0, 0
+            self._logger.error(f"Failed to get live resolution, due to: {repr(exc)}")
+        if w > 0 and h > 0:
+            return ('电台' in area and w < h), area, (w, h)
+        else:
+            return '电台' in area, area, (w, h)
 
     async def on_live_began(self, live: Live):
         _record, area, (w, h) = await self._should_auto_record()

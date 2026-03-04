@@ -34,6 +34,29 @@ _INFO_PATTERN = re.compile(
 _LIVE_STATUS_PATTERN = re.compile(rb'"live_status"\s*:\s*(\d)')
 
 
+def sort_by_host(info: Any) -> int:
+    host = info['host']
+    if match := re.search(r'gotcha(\d+)', host):
+        num = match.group(1)
+        if num == '04':
+            return 0
+        if num == '09':
+            return 1
+        if num == '08':
+            return 2
+        if num == '05':
+            return 3
+        if num == '07':
+            return 4
+        return 1000 + int(num)
+    elif 'mcdn' in host:
+        return 2000
+    elif re.search(r'cn-[a-z]+-[a-z]+', host):
+        return 5000
+    else:
+        return 10000
+
+
 class Live:
     def __init__(self, room_id: int, user_agent: str = '', cookie: str = '') -> None:
         self._logger = logger.bind(room_id=room_id)
@@ -300,28 +323,6 @@ class Live:
         if qn not in accept_qns or not all(map(lambda q: q == qn, current_qns)):
             raise NoStreamQualityAvailable(stream_format, stream_codec, qn)
 
-        def sort_by_host(info: Any) -> int:
-            host = info['host']
-            if match := re.search(r'gotcha(\d+)', host):
-                num = match.group(1)
-                if num == '04':
-                    return 0
-                if num == '09':
-                    return 1
-                if num == '08':
-                    return 2
-                if num == '05':
-                    return 3
-                if num == '07':
-                    return 4
-                return 1000 + int(num)
-            elif 'mcdn' in host:
-                return 2000
-            elif re.search(r'cn-[a-z]+-[a-z]+', host):
-                return 5000
-            else:
-                return 10000
-
         url_infos = sorted(
             ({**i, 'base_url': c['base_url']} for c in codecs for i in c['url_info']),
             key=sort_by_host,
@@ -419,7 +420,26 @@ class Live:
         return json.loads(string)
 
     async def get_live_resolution(self) -> Tuple[int, int]:
-        stream_url = await self.get_live_stream_url()
+        stream_format = "flv"
+        stream_codec = "avc"
+        qn = 250
+        streams = await self.get_live_streams(qn, api_platform="ewb")
+        if not streams:
+            raise NoStreamAvailable(stream_format, stream_codec, qn)
+
+        formats = extract_formats(streams, stream_format)
+        if not formats:
+            raise NoStreamFormatAvailable(stream_format, stream_codec, qn)
+
+        codecs = extract_codecs(formats, stream_codec)
+        if not codecs:
+            raise NoStreamCodecAvailable(stream_format, stream_codec, qn)
+
+        url_infos = sorted(
+            ({**i, 'base_url': c['base_url']} for c in codecs for i in c['url_info']),
+            key=sort_by_host,
+        )
+        urls = [i['host'] + i['base_url'] + i['extra'] for i in url_infos]
         cmd = [
             "ffprobe",
             "-v",
@@ -430,7 +450,7 @@ class Live:
             "stream=width,height",
             "-of",
             "csv=s=x:p=0",
-            stream_url,
+            urls[0],
         ]
 
         try:
