@@ -15,8 +15,9 @@ from tenacity import (
     retry,
     retry_if_exception_type,
     stop_after_attempt,
-    wait_exponential,
+    wait_exponential_jitter,
     stop_after_delay,
+    RetryCallState,
 )
 
 from blrec.logging.context import async_task_with_logger_context
@@ -29,8 +30,20 @@ from ..utils.string import extract_buvid_from_cookie, extract_uid_from_cookie
 from .api import AppApi, WebApi, generate_buvid3
 from .exceptions import DanmakuClientAuthError, ApiRequestError
 from .typing import ApiPlatform, Danmaku
+from datetime import datetime
 
 __all__ = 'DanmakuClient', 'DanmakuListener', 'Danmaku', 'DanmakuCommand'
+
+
+def stop_not_at_sleep(retry_state: RetryCallState):
+    current_hour = datetime.now().hour
+
+    # 0-10点：不触发停止，无限重试
+    if 0 <= current_hour <= 10:
+        return False  # False = 不停止
+
+    # 其他时间：正常停止逻辑
+    return retry_state.seconds_since_start >= 600
 
 
 class CookieExpiredException(Exception):
@@ -134,7 +147,7 @@ class DanmakuClient(EventEmitter[DanmakuListener], AsyncStoppableMixin):
             )
         except Exception as exc:
             self._logger.error(f"Cookie Expired: {repr(exc)}")
-            submit_exception(CookieExpiredException("Cookie失效"))
+            submit_exception(CookieExpiredException(f"Cookie Expired: {repr(exc)}"))
             return False
         else:
             return True
@@ -150,8 +163,8 @@ class DanmakuClient(EventEmitter[DanmakuListener], AsyncStoppableMixin):
         await self._emit('client_reconnected')
 
     @retry(
-        wait=wait_exponential(multiplier=0.5, max=30),
-        stop=stop_after_attempt(5),
+        wait=wait_exponential_jitter(initial=0.5, max=30, jitter=2),
+        stop=stop_not_at_sleep,
         retry=retry_if_exception_type(
             (asyncio.TimeoutError, aiohttp.ClientError, ConnectionError)
         ),
@@ -268,7 +281,9 @@ class DanmakuClient(EventEmitter[DanmakuListener], AsyncStoppableMixin):
             if isinstance(exc, ApiRequestError):
                 if exc.code == -352:
                     self.webapi._update_wbi_key()
-                    submit_exception(CookieExpiredException("Cookie失效，触发风控"))
+                    submit_exception(
+                        CookieExpiredException(f"触发风控({exc.code}): {repr(exc)}")
+                    )
         else:
             self._logger.debug('Danmu info updated')
 
