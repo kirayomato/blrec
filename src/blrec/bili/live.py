@@ -320,7 +320,9 @@ class Live:
 
         accept_qns = jsonpath(codecs, '$[*].accept_qn[*]')
         current_qns = jsonpath(codecs, '$[*].current_qn')
-        if qn not in accept_qns or not all(map(lambda q: q == qn, current_qns)):
+        if qn and (
+            qn not in accept_qns or not all(map(lambda q: q == qn, current_qns))
+        ):
             raise NoStreamQualityAvailable(stream_format, stream_codec, qn)
 
         url_infos = sorted(
@@ -420,40 +422,20 @@ class Live:
         return json.loads(string)
 
     async def get_live_resolution(self) -> Tuple[int, int]:
-        stream_format = "flv"
-        stream_codec = "avc"
-        qn = 250
-        streams = await self.get_live_streams(qn, api_platform="ewb")
-        if not streams:
-            raise NoStreamAvailable(stream_format, stream_codec, qn)
-
-        formats = extract_formats(streams, stream_format)
-        if not formats:
-            raise NoStreamFormatAvailable(stream_format, stream_codec, qn)
-
-        codecs = extract_codecs(formats, stream_codec)
-        if not codecs:
-            raise NoStreamCodecAvailable(stream_format, stream_codec, qn)
-
-        url_infos = sorted(
-            ({**i, 'base_url': c['base_url']} for c in codecs for i in c['url_info']),
-            key=sort_by_host,
-        )
-        urls = [i['host'] + i['base_url'] + i['extra'] for i in url_infos]
-        cmd = [
-            "ffprobe",
-            "-v",
-            "error",
-            "-select_streams",
-            "v:0",
-            "-show_entries",
-            "stream=width,height",
-            "-of",
-            "csv=s=x:p=0",
-            urls[0],
-        ]
-
         try:
+            stream = await self.get_live_stream_url(qn=0)
+            cmd = [
+                "ffprobe",
+                "-v",
+                "error",
+                "-select_streams",
+                "v:0",
+                "-show_entries",
+                "stream=width,height",
+                "-of",
+                "csv=s=x:p=0",
+                stream,
+            ]
             # 创建异步子进程
             proc = await asyncio.create_subprocess_exec(
                 *cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
@@ -472,8 +454,11 @@ class Live:
 
             # 解析输出
             result = stdout.decode('utf-8', errors='ignore').strip()
+            error_msg = stderr.decode('utf-8', errors='ignore').strip()
             if not result:
-                self._logger.warning(f'Failed to get live stream resolution')
+                self._logger.warning(
+                    f'Failed to get live stream resolution, ffmpeg no output:{error_msg}'
+                )
                 return (0, 0)
 
             # 解析 "1920x1080" 格式
