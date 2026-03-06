@@ -67,7 +67,7 @@ class RecordTask(LiveEventListener):
         self._ready = False
         self._monitor_enabled: bool = False
         self._recorder_enabled: bool = False
-        self.temp_start: bool = 0
+        self._temp_start: bool = 0
         self._logger_context = {'room_id': self._live.room_id}
         self._logger = logger.bind(**self._logger_context)
         self._auto_record_radio = auto_record_radio
@@ -490,7 +490,7 @@ class RecordTask(LiveEventListener):
         await self._recorder.start()
 
     async def disable_recorder(self, force: bool = False) -> None:
-        self.temp_start = 0
+        self._temp_start = 0
         if not self._recorder_enabled:
             return
         self._recorder_enabled = False
@@ -550,16 +550,16 @@ class RecordTask(LiveEventListener):
                 f'Detected Live Area: {area}, Resolution: {w}x{h}, Start temporarily recording'
             )
             await self.enable_recorder()
-            self.temp_start = 1
+            self._temp_start = 1
 
     async def on_live_stream_reset(self, live: Live):
         await self.on_live_began(live)
 
     async def on_live_ended(self, live: Live):
-        if self.temp_start:
+        if self._temp_start:
             self._logger.info('End temporarily recording')
             await self.disable_recorder()
-            self.temp_start = 0
+            self._temp_start = 0
 
     async def on_live_status_delay(self) -> None:
         is_record = self._recorder_enabled
