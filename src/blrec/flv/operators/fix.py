@@ -53,7 +53,7 @@ def fix() -> Callable[[FLVStream], FLVStream]:
                 metadata = parse_metadata(tag)
                 fps = metadata.get('fps') or metadata.get('framerate')
 
-                if not fps:
+                if not isinstance(fps, (int, float)) or fps < 1:
                     return
 
                 frame_rate = fps
