@@ -35,17 +35,6 @@ from datetime import datetime
 __all__ = 'DanmakuClient', 'DanmakuListener', 'Danmaku', 'DanmakuCommand'
 
 
-def stop_not_at_sleep(retry_state: RetryCallState):
-    current_hour = datetime.now().hour
-
-    # 0-10点：不触发停止，无限重试
-    if 0 <= current_hour <= 10:
-        return False  # False = 不停止
-
-    # 其他时间：正常停止逻辑
-    return retry_state.seconds_since_start >= 600
-
-
 class CookieExpiredException(Exception):
     pass
 
@@ -175,8 +164,7 @@ class DanmakuClient(EventEmitter[DanmakuListener], AsyncStoppableMixin):
         await self._emit('client_reconnected')
 
     @retry(
-        wait=wait_exponential_jitter(initial=0.5, max=30, jitter=2),
-        stop=stop_not_at_sleep,
+        wait=wait_exponential_jitter(initial=0.5, max=60, jitter=2),
         retry=retry_if_exception_type(
             (asyncio.TimeoutError, aiohttp.ClientError, ConnectionError)
         ),
