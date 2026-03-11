@@ -95,6 +95,7 @@ class DanmakuClient(EventEmitter[DanmakuListener], AsyncStoppableMixin):
         self._client_number = 0
 
         self._connected = False
+        self._anonymous_mode = False
         self._protover: int = WS.BODY_PROTOCOL_VERSION_BROTLI
         if ver := os.environ.get('BLREC_DANMAKU_PROTOCOL_VERSION'):
             if ver in (
@@ -119,6 +120,17 @@ class DanmakuClient(EventEmitter[DanmakuListener], AsyncStoppableMixin):
         cookie = self._headers.get('Cookie', '')
         self._uid = extract_uid_from_cookie(cookie) or 0
         self._buvid = extract_buvid_from_cookie(cookie) or ''
+        if self._uid != 0:
+            self._anonymous_mode = False
+        # 同步更新API对象的headers
+        self.webapi.headers = self._headers
+        self.appapi.headers = self._headers
+
+    def _set_anonymous_cookie(self) -> None:
+        """设置匿名模式Cookie并触发完整的headers更新"""
+        self._buvid = generate_buvid3()
+        new_headers = {**self.headers, 'Cookie': f"buvid3={self._buvid}"}
+        self.headers = new_headers
 
     async def _do_start(self) -> None:
         await self._update_danmu_info()
@@ -171,10 +183,11 @@ class DanmakuClient(EventEmitter[DanmakuListener], AsyncStoppableMixin):
     )
     async def _connect(self) -> None:
         self._logger.debug('Connecting to server...')
-        if not await self.check_cookie():
+        if not self._anonymous_mode and not await self.check_cookie():
             self._uid = 0
-            self._buvid = generate_buvid3()
-            self.headers['Cookie'] = f"buvid3={self._buvid}"
+            self._set_anonymous_cookie()
+            self._anonymous_mode = True
+            self._logger.debug('Switched to anonymous mode')
         try:
             await self._connect_websocket()
             await self._send_auth()
@@ -182,6 +195,9 @@ class DanmakuClient(EventEmitter[DanmakuListener], AsyncStoppableMixin):
             await self._handle_auth_reply(reply)
         except Exception as exc:
             self._logger.debug(f'Failed to connect to server: {repr(exc)}')
+            if self._anonymous_mode:
+                self._set_anonymous_cookie()
+                self._logger.debug('Reset buvid due to connection failure')
             self._host_index += 1
             if self._host_index >= len(self._danmu_info['host_list']):
                 self._host_index = 0
