@@ -162,6 +162,7 @@ def fix() -> Callable[[FLVStream], FLVStream]:
 
                 if delta < -10000:
                     logger.error(f'Delta Timestamp too large: {delta}')
+                    dispose()
                     raise EOFError
 
                 tag = correct_ts(tag)
