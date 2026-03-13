@@ -108,18 +108,21 @@ class DanmakuClient(EventEmitter[DanmakuListener], AsyncStoppableMixin):
         self._headers = {**value, 'Connection': 'Upgrade'}
         cookie = self._headers.get('Cookie', '')
         self._uid = extract_uid_from_cookie(cookie) or 0
-        self._buvid = extract_buvid_from_cookie(cookie) or ''
+        self._buvid = extract_buvid_from_cookie(cookie) or generate_buvid3()
         if self._uid != 0:
             self._anonymous_mode = False
         # 同步更新API对象的headers
         self.webapi.headers = self._headers
         self.appapi.headers = self._headers
 
-    def _set_anonymous_cookie(self) -> None:
+    async def _set_anonymous_cookie(self) -> None:
         """设置匿名模式Cookie并触发完整的headers更新"""
+        self._anonymous_mode = True
+        self._uid = 0
         self._buvid = generate_buvid3()
         new_headers = {**self.headers, 'Cookie': f"buvid3={self._buvid}"}
         self.headers = new_headers
+        await self._update_danmu_info()
 
     async def _do_start(self) -> None:
         await self._update_danmu_info()
@@ -140,6 +143,8 @@ class DanmakuClient(EventEmitter[DanmakuListener], AsyncStoppableMixin):
         self._logger.debug('Restarted danmaku client')
 
     async def check_cookie(self):
+        if self._anonymous_mode:
+            return False
         try:
             json_res = await get_nav(self.headers['Cookie'])
             assert json_res['code'] != WS.AUTH_TOKEN_ERROR, (
@@ -171,21 +176,30 @@ class DanmakuClient(EventEmitter[DanmakuListener], AsyncStoppableMixin):
     )
     async def _connect(self) -> None:
         self._logger.debug('Connecting to server...')
-        if not self._anonymous_mode and not await self.check_cookie():
-            self._uid = 0
-            self._set_anonymous_cookie()
-            self._anonymous_mode = True
-            self._logger.debug('Switched to anonymous mode')
         try:
             await self._connect_websocket()
             await self._send_auth()
             reply = await self._recieve_auth_reply()
             await self._handle_auth_reply(reply)
         except Exception as exc:
-            self._logger.debug(f'Failed to connect to server: {repr(exc)}')
+            self._logger.warning(f'Failed to connect to server: {repr(exc)}')
             if self._anonymous_mode:
-                self._set_anonymous_cookie()
-                self._logger.debug('Reset buvid due to connection failure')
+                await self._set_anonymous_cookie()
+                self._logger.warning('Reset anonymous cookie due to connection failure')
+
+            if (
+                hasattr(exc, 'args')
+                and len(exc.args) > 0
+                and hasattr(exc.args[0], 'type')
+            ):
+                ws_msg_type = exc.args[0].type
+                if ws_msg_type == aiohttp.WSMsgType.CLOSED:
+                    submit_exception(
+                        CookieExpiredException(f"Cookie Expired: {repr(exc)}")
+                    )
+                    await self._set_anonymous_cookie()
+                    self._logger.warning('Switched to anonymous mode')
+
             self._host_index += 1
             if self._host_index >= len(self._danmu_info['host_list']):
                 self._host_index = 0
@@ -286,7 +300,9 @@ class DanmakuClient(EventEmitter[DanmakuListener], AsyncStoppableMixin):
                 if exc.code == -352:
                     self.webapi._update_wbi_key()
                     submit_exception(
-                        CookieExpiredException(f"触发风控({exc.code}): {repr(exc)}")
+                        CookieExpiredException(
+                            f"触发风控：{repr(exc)}({exc.code}): {repr(exc)}"
+                        )
                     )
         else:
             self._logger.debug('Danmu info updated')
