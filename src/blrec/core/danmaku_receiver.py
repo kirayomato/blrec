@@ -36,36 +36,37 @@ class DanmakuReceiver(DanmakuListener, StoppableMixin):
         return await self._queue.get()
 
     async def on_danmaku_received(self, danmu: Danmaku) -> None:
-        if 'cmd' not in danmu:
-            self._logger.debug(f'Illegal Danmu Found: {danmu}')
-            return
-        cmd: str = danmu['cmd']
-        msg: DanmakuMsg
+        try:
+            cmd: str = danmu['cmd']
+            msg: DanmakuMsg
 
-        if cmd.startswith(DanmakuCommand.DANMU_MSG.value):
-            msg = DanmuMsg.from_danmu(danmu)
-        elif cmd == DanmakuCommand.SEND_GIFT.value:
-            msg = GiftSendMsg.from_danmu(danmu)
-        elif cmd == DanmakuCommand.GUARD_BUY.value:
-            msg = GuardBuyMsg.from_danmu(danmu)
-        elif cmd == DanmakuCommand.SUPER_CHAT_MESSAGE.value:
-            msg = SuperChatMsg.from_danmu(danmu)
-        elif cmd == DanmakuCommand.USER_TOAST_MSG.value:
-            msg = UserToastMsg.from_danmu(danmu)
-        elif cmd == DanmakuCommand.COMMON_NOTICE_DANMAKU.value:
-            text = danmu['data']['content_segments']
-            if len(text) == 3 and '投喂' in str(text):
-                msg = GiftSendMsg.from_notice(danmu)
+            if cmd.startswith(DanmakuCommand.DANMU_MSG.value):
+                msg = DanmuMsg.from_danmu(danmu)
+            elif cmd == DanmakuCommand.SEND_GIFT.value:
+                msg = GiftSendMsg.from_danmu(danmu)
+            elif cmd == DanmakuCommand.GUARD_BUY.value:
+                msg = GuardBuyMsg.from_danmu(danmu)
+            elif cmd == DanmakuCommand.SUPER_CHAT_MESSAGE.value:
+                msg = SuperChatMsg.from_danmu(danmu)
+            elif cmd == DanmakuCommand.USER_TOAST_MSG.value:
+                msg = UserToastMsg.from_danmu(danmu)
+            elif cmd == DanmakuCommand.COMMON_NOTICE_DANMAKU.value:
+                text = danmu['data']['content_segments']
+                if len(text) == 3 and '投喂' in str(text):
+                    msg = GiftSendMsg.from_notice(danmu)
+                else:
+                    return
             else:
                 return
-        else:
-            return
 
-        try:
-            self._queue.put_nowait(msg)
-        except QueueFull:
-            self._queue.get_nowait()  # discard the first item
-            self._queue.put_nowait(msg)
+            try:
+                self._queue.put_nowait(msg)
+            except QueueFull:
+                self._queue.get_nowait()  # discard the first item
+                self._queue.put_nowait(msg)
+        except Exception as e:
+            self._logger.debug(f'Illegal Danmu Found: {danmu}, {repr(e)}')
+            return
 
     def _clear_queue(self) -> None:
         self._queue = Queue(maxsize=self._MAX_QUEUE_SIZE)
