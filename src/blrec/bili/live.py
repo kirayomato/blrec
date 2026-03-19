@@ -320,9 +320,7 @@ class Live:
 
         accept_qns = jsonpath(codecs, '$[*].accept_qn[*]')
         current_qns = jsonpath(codecs, '$[*].current_qn')
-        if qn and (
-            qn not in accept_qns or not all(map(lambda q: q == qn, current_qns))
-        ):
+        if qn not in accept_qns or not all(map(lambda q: q == qn, current_qns)):
             raise NoStreamQualityAvailable(stream_format, stream_codec, qn)
 
         url_infos = sorted(
@@ -421,21 +419,21 @@ class Live:
         string = match.group(1).decode(encoding='utf8')
         return json.loads(string)
 
-    async def get_live_resolution(self) -> Tuple[int, int]:
+    async def get_live_resolution(self, stream) -> Tuple[int, int]:
+        cmd = [
+            "ffprobe",
+            "-v",
+            "error",
+            "-select_streams",
+            "v:0",
+            "-show_entries",
+            "stream=width,height",
+            "-of",
+            "csv=s=x:p=0",
+            stream,
+        ]
+
         try:
-            stream = await self.get_live_stream_url(qn=0)
-            cmd = [
-                "ffprobe",
-                "-v",
-                "error",
-                "-select_streams",
-                "v:0",
-                "-show_entries",
-                "stream=width,height",
-                "-of",
-                "csv=s=x:p=0",
-                stream,
-            ]
             # 创建异步子进程
             proc = await asyncio.create_subprocess_exec(
                 *cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
@@ -454,10 +452,10 @@ class Live:
 
             # 解析输出
             result = stdout.decode('utf-8', errors='ignore').strip()
-            error_msg = stderr.decode('utf-8', errors='ignore').strip()
             if not result:
+                error_msg = stderr.decode('utf-8', errors='ignore').strip()
                 self._logger.warning(
-                    f'Failed to get live stream resolution, ffmpeg no output:{error_msg}'
+                    f'Failed to get live stream resolution, ffmpeg no output: {error_msg}'
                 )
                 return (0, 0)
 
@@ -475,3 +473,23 @@ class Live:
                 await proc.wait()
             finally:
                 return (0, 0)
+
+    async def get_live_stream_resolution(self) -> Tuple[int, int]:
+        for qn in [10000, 250]:
+            try:
+                url = await self.get_live_stream_url(qn)
+                resolution = await self.get_live_resolution(url)
+                if resolution != (0, 0):
+                    return resolution
+            except Exception as e:
+                self._logger.warning(f'Failed to get live stream url: {repr(e)}')
+        return (0, 0)
+
+    async def _should_auto_record(self):
+        area = self.room_info.area_name
+        w, h = await self.get_live_stream_resolution()
+        if w > 0 and h > 0:
+            flag = w < h
+        else:
+            flag = '电台' in area
+        return flag, area, (w, h)
