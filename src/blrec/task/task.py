@@ -529,22 +529,10 @@ class RecordTask(LiveEventListener):
     def _setup_live_monitor(self) -> None:
         self._live_monitor = LiveMonitor(self._danmaku_client, self._live)
 
-    async def _should_auto_record(self):
-        area = self._live.room_info.area_name
-        try:
-            w, h = await self._live.get_live_stream_resolution()
-        except Exception as exc:
-            w, h = 0, 0
-            self._logger.error(f"Failed to get live resolution, due to: {repr(exc)}")
-
-        if w > 0 and h > 0:
-            flag = w < h
-        else:
-            flag = '电台' in area
-        return flag, area, (w, h)
-
     async def on_live_stream_available(self, live):
-        _record, area, (w, h) = await self._should_auto_record()
+        if self._recorder_enabled:
+            return
+        _record, area, (w, h) = await live._should_auto_record()
         if _record and self._auto_record_radio:
             if self._recorder_enabled or self._recorder.danmaku_only:
                 return

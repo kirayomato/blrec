@@ -475,14 +475,30 @@ class Live:
                 return (0, 0)
 
     async def get_live_stream_resolution(self) -> Tuple[int, int]:
-        for qn in [10000, 250]:
-            try:
-                url = await self.get_live_stream_url(qn)
-                resolution = await self.get_live_resolution(url)
-                if resolution != (0, 0):
-                    return resolution
-            except Exception as e:
-                self._logger.warning(f'Failed to get live stream url: {repr(e)}')
+        start_time = time.time()
+        max_wait = 60  # 最大重试时间60秒
+
+        while True:
+            for qn in [10000, 250]:
+                try:
+                    url = await self.get_live_stream_url(qn)
+                    resolution = await self.get_live_resolution(url)
+                    if resolution != (0, 0):
+                        return resolution
+                    await asyncio.sleep(3)
+                except Exception as e:
+                    self._logger.warning(f'Failed to get live stream url: {repr(e)}')
+
+            # 如果都失败，等待一段时间后重试（指数退避）
+            wait_time = min(5, 2 ** (min(4, int((time.time() - start_time) / 5))))
+            # 检查是否超时
+            if time.time() - start_time + wait_time > max_wait:
+                self._logger.warning(
+                    'Get live stream resolution timeout after 60 seconds'
+                )
+                break
+            await asyncio.sleep(wait_time)
+
         return (0, 0)
 
     async def _should_auto_record(self):
