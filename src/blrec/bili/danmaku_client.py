@@ -142,6 +142,9 @@ class DanmakuClient(EventEmitter[DanmakuListener], AsyncStoppableMixin):
         await self.start()
         self._logger.debug('Restarted danmaku client')
 
+    async def check_cookieV2(self):
+        return await self.webapi.test_cookie()
+
     async def check_cookie(self):
         if self._anonymous_mode:
             return False

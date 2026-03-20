@@ -564,7 +564,7 @@ class Recorder(
         self._stream_recorder.clear_files()
 
     async def _reconnect_danmaku(self) -> None:
-        if await self._danmaku_client.check_cookie():
+        if await self._danmaku_client.check_cookieV2():
             await self._danmaku_client.reconnect()
         else:
             self._logger.warning("Cookie expired, skip reconnect server")

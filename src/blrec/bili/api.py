@@ -1,5 +1,6 @@
 import asyncio
 import hashlib
+import json
 import random
 import time
 from abc import ABC
@@ -14,6 +15,7 @@ from tenacity import retry, stop_after_delay, wait_exponential
 from .exceptions import ApiRequestError
 from . import wbi
 from .typing import JsonResponse, QualityNumber, ResponseData
+from ..utils.string import extract_uid_from_cookie, extract_buvid_from_cookie
 
 __all__ = 'AppApi', 'WebApi'
 
@@ -333,6 +335,34 @@ class WebApi(BaseApi):
         path = '/x/web-interface/nav'
         json_res = await self._get_json(self.base_api_urls, path, check_response=False)
         return json_res
+
+    async def test_cookie(self) -> bool:
+        """
+        测试 cookie 是否有效，并返回用户信息
+
+        Returns:
+            (成功标志, 消息)
+        """
+        path = '/xlive/web-ucenter/user/get_user_info'
+        try:
+            json_res = await self._get_json(
+                self.base_live_api_urls, path, check_response=False
+            )
+        except Exception as e:
+            return False
+        if json_res.get('code') != 0:
+            return False
+
+        # 从 cookie 中提取信息
+        cookie = self.headers.get('Cookie', '')
+        uid_from_cookie = extract_uid_from_cookie(cookie)
+        buvid3_from_cookie = extract_buvid_from_cookie(cookie)
+
+        message = f"""User: {json_res.get('data', {}).get('uname', 'N/A')}
+UID (from API response): {json_res.get('data', {}).get('uid', 'N/A')}
+UID (from Cookie): {uid_from_cookie or 'Not found'}
+BUVID3 (from Cookie): {buvid3_from_cookie or 'Not found'}"""
+        return True
 
     async def _update_wbi_key(self) -> None:
         nav = await self.get_nav()
