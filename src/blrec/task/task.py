@@ -530,12 +530,10 @@ class RecordTask(LiveEventListener):
         self._live_monitor = LiveMonitor(self._danmaku_client, self._live)
 
     async def on_live_stream_available(self, live):
-        if self._recorder_enabled:
+        if self._recorder_enabled or self._recorder.danmaku_only:
             return
         _record, area, (w, h) = await live._should_auto_record()
         if _record and self._auto_record_radio:
-            if self._recorder_enabled or self._recorder.danmaku_only:
-                return
             self._logger.info(
                 f'Detected Live Area: {area}, Resolution: {w}x{h}, Start temporarily recording'
             )
