@@ -1,9 +1,10 @@
 import asyncio
 import json
+import os
 import re
 import time
 from typing import Any, Dict, List, Tuple
-
+from urllib.parse import urlparse
 import aiohttp
 from jsonpath import jsonpath
 from tenacity import retry, retry_if_exception_type, stop_after_delay, wait_exponential
@@ -419,7 +420,13 @@ class Live:
         string = match.group(1).decode(encoding='utf8')
         return json.loads(string)
 
-    async def get_live_resolution(self, stream) -> Tuple[int, int]:
+    async def get_live_resolution(self, stream: str) -> Tuple[int, int]:
+        downloaded = False
+        if stream.startswith("http"):
+            stream = await self._download_video(stream)
+            if not stream:
+                return (0, 0)
+            downloaded = True
         cmd = [
             "ffprobe",
             "-v",
@@ -445,16 +452,14 @@ class Live:
             # 检查返回码
             if proc.returncode != 0:
                 error_msg = stderr.decode('utf-8', errors='ignore').strip()
-                self._logger.warning(
-                    f'Failed to get live stream resolution: {error_msg}'
-                )
+                self._logger.debug(f'Failed to get live stream resolution: {error_msg}')
                 return (0, 0)
 
             # 解析输出
             result = stdout.decode('utf-8', errors='ignore').strip()
             if not result:
                 error_msg = stderr.decode('utf-8', errors='ignore').strip()
-                self._logger.warning(
+                self._logger.debug(
                     f'Failed to get live stream resolution, ffmpeg no output: {error_msg}'
                 )
                 return (0, 0)
@@ -463,31 +468,43 @@ class Live:
             width_str, height_str = result.split('x')
             width = int(width_str)
             height = int(height_str)
-
+            self._logger.info(f'Live stream ({stream}) resolution: {width}x{height}')
             return (width, height)
 
         except Exception as e:
-            self._logger.warning(f'Failed to get live stream resolution: {repr(e)}')
+            self._logger.debug(f'Failed to get live stream resolution: {repr(e)}')
             try:
                 proc.kill()
                 await proc.wait()
             finally:
                 return (0, 0)
+        finally:
+            if downloaded and os.path.exists(stream):
+                os.remove(stream)
 
     async def get_live_stream_resolution(self) -> Tuple[int, int]:
         start_time = time.time()
         max_wait = 60  # 最大重试时间60秒
-
+        _qn = [10000, 250]
+        _format = ['flv', 'ts', 'fmp4']
+        _codec = ['avc', 'hevc']
+        i = j = k = 0
         while True:
-            for qn in [10000, 250]:
-                try:
-                    url = await self.get_live_stream_url(qn)
-                    resolution = await self.get_live_resolution(url)
-                    if resolution != (0, 0):
-                        return resolution
-                    await asyncio.sleep(3)
-                except Exception as e:
-                    self._logger.warning(f'Failed to get live stream url: {repr(e)}')
+            try:
+                url = await self.get_live_stream_url(
+                    _qn[i], stream_format=_format[j], stream_codec=_codec[k]
+                )
+                resolution = await self.get_live_resolution(url)
+                if resolution != (0, 0):
+                    return resolution
+            except NoStreamQualityAvailable:
+                i = (i + 1) % len(_qn)
+            except NoStreamFormatAvailable:
+                j = (j + 1) % len(_format)
+            except NoStreamCodecAvailable:
+                k = (k + 1) % len(_codec)
+            except Exception as e:
+                self._logger.warning(f'Failed to get live stream url: {repr(e)}')
 
             # 如果都失败，等待一段时间后重试（指数退避）
             wait_time = min(5, 2 ** (min(4, int((time.time() - start_time) / 5))))
@@ -509,3 +526,35 @@ class Live:
         else:
             flag = '电台' in area
         return flag, area, (w, h)
+
+    async def _download_video(
+        self, url: str, max_bytes: int = 2621440, chunk_size: int = 8192
+    ) -> str:
+        downloaded = 0
+        data = bytearray()
+
+        parsed = urlparse(url)
+        path = parsed.path
+        output_file = path.split('/')[-1]
+        if os.path.exists(output_file):
+            os.remove(output_file)
+
+        try:
+            async with self._session.get(
+                url, headers=self._headers, timeout=30
+            ) as response:
+                response.raise_for_status()
+                with open(output_file, 'ab') as f:
+                    async for chunk in response.content.iter_chunked(chunk_size):
+                        f.write(chunk)
+                        downloaded += len(chunk)
+                        if downloaded >= max_bytes:
+                            break
+
+        except Exception as e:
+            self._logger.debug(f'Failed to download video: {repr(e)}')
+            if os.path.exists(output_file):
+                os.remove(output_file)
+            return None
+
+        return output_file
