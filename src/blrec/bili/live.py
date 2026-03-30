@@ -447,7 +447,7 @@ class Live:
             )
 
             # 等待执行完成，带超时
-            stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=10)
+            stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=5)
 
             # 检查返回码
             if proc.returncode != 0:
@@ -488,15 +488,17 @@ class Live:
         _qn = [10000, 250]
         _format = ['flv', 'ts', 'fmp4']
         _codec = ['avc', 'hevc']
+        _alternative = 0
         i = j = k = 0
         while True:
             try:
                 url = await self.get_live_stream_url(
-                    _qn[i], stream_format=_format[j], stream_codec=_codec[k]
+                    _qn[i],
+                    stream_format=_format[j],
+                    stream_codec=_codec[k],
+                    select_alternative=_alternative,
                 )
                 resolution = await self.get_live_resolution(url)
-                if resolution != (0, 0):
-                    return resolution
             except NoStreamQualityAvailable:
                 i = (i + 1) % len(_qn)
             except NoStreamFormatAvailable:
@@ -505,11 +507,20 @@ class Live:
                 k = (k + 1) % len(_codec)
             except Exception as e:
                 self._logger.warning(f'Failed to get live stream url: {repr(e)}')
+            else:
+                if resolution != (0, 0):
+                    if j != 0 or k != 0:
+                        self._logger.debug(
+                            f'Use stream format: {_format[j]}, codec: {_codec[k]}'
+                        )
+                    return resolution
+                else:
+                    _alternative ^= 1
 
             # 如果都失败，等待一段时间后重试（指数退避）
-            wait_time = min(5, 2 ** (min(4, int((time.time() - start_time) / 5))))
+            wait_time = min(5, 2 ** ((time.time() - start_time) / 5))
             # 检查是否超时
-            if time.time() - start_time + wait_time > max_wait:
+            if time.time() - start_time > max_wait:
                 self._logger.warning(
                     'Get live stream resolution timeout after 60 seconds'
                 )
@@ -531,7 +542,6 @@ class Live:
         self, url: str, max_bytes: int = 2621440, chunk_size: int = 8192
     ) -> str:
         downloaded = 0
-        data = bytearray()
 
         parsed = urlparse(url)
         path = parsed.path
@@ -541,7 +551,7 @@ class Live:
 
         try:
             async with self._session.get(
-                url, headers=self._headers, timeout=30
+                url, headers=self._headers, timeout=10
             ) as response:
                 response.raise_for_status()
                 with open(output_file, 'ab') as f:
