@@ -48,12 +48,15 @@ class RecordTaskManager:
         assert settings_list is not None
 
         for settings in settings_list:
-            try:
-                await self.add_task(settings)
-            except Exception as e:
-                submit_exception(e)
+            asyncio.create_task(self._add_task_async(settings))
             await asyncio.sleep(uniform(1, 2))
         logger.info('Load all tasks complete')
+
+    async def _add_task_async(self, settings) -> None:
+        try:
+            await self.add_task(settings)
+        except Exception as e:
+            submit_exception(e)
 
     async def destroy_all_tasks(self) -> None:
         logger.debug('Destroying all tasks...')
