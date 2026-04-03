@@ -305,8 +305,7 @@ class Live:
         api_platform: ApiPlatform = 'web',
         stream_format: StreamFormat = 'flv',
         stream_codec: StreamCodec = 'avc',
-        select_alternative: bool = False,
-    ) -> str:
+    ) -> List[str]:
         streams = await self.get_live_streams(qn, api_platform=api_platform)
         if not streams:
             raise NoStreamAvailable(stream_format, stream_codec, qn)
@@ -330,15 +329,10 @@ class Live:
         )
         urls = [i['host'] + i['base_url'] + i['extra'] for i in url_infos]
 
-        if not select_alternative:
-            return urls[0]
+        if not urls:
+            raise NoStreamAvailable(stream_format, stream_codec, qn)
 
-        try:
-            return urls[1]
-        except IndexError:
-            # if qn == 10000:
-            # raise NoStreamQualityAvailable(stream_format, stream_codec, qn)
-            raise NoAlternativeStreamAvailable(stream_format, stream_codec, qn)
+        return urls
 
     def _check_room_play_info(self, data: ResponseData) -> None:
         if data.get('is_hidden'):
@@ -488,17 +482,20 @@ class Live:
         _qn = [10000, 250]
         _format = ['flv', 'ts', 'fmp4']
         _codec = ['avc', 'hevc']
-        _alternative = 0
         i = j = k = 0
         while True:
             try:
-                url = await self.get_live_stream_url(
-                    _qn[i],
-                    stream_format=_format[j],
-                    stream_codec=_codec[k],
-                    select_alternative=_alternative,
+                urls = await self.get_live_stream_url(
+                    _qn[i], stream_format=_format[j], stream_codec=_codec[k]
                 )
-                resolution = await self.get_live_resolution(url)
+                for url in urls:
+                    resolution = await self.get_live_resolution(url)
+                    if resolution != (0, 0):
+                        if j != 0 or k != 0:
+                            self._logger.debug(
+                                f'Use stream format: {_format[j]}, codec: {_codec[k]}'
+                            )
+                        return resolution
             except NoStreamQualityAvailable:
                 i = (i + 1) % len(_qn)
             except NoStreamFormatAvailable:
@@ -507,15 +504,6 @@ class Live:
                 k = (k + 1) % len(_codec)
             except Exception as e:
                 self._logger.warning(f'Failed to get live stream url: {repr(e)}')
-            else:
-                if resolution != (0, 0):
-                    if j != 0 or k != 0:
-                        self._logger.debug(
-                            f'Use stream format: {_format[j]}, codec: {_codec[k]}'
-                        )
-                    return resolution
-                else:
-                    _alternative ^= 1
 
             # 如果都失败，等待一段时间后重试（指数退避）
             wait_time = min(5, 2 ** ((time.time() - start_time) / 5))

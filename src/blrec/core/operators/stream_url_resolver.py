@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Final, Optional
+from typing import Final, List, Optional
 from urllib.parse import urlparse
 
 import requests
@@ -12,7 +12,6 @@ from blrec.bili.exceptions import (
     LiveRoomEncrypted,
     LiveRoomHidden,
     LiveRoomLocked,
-    NoAlternativeStreamAvailable,
     NoStreamAvailable,
     NoStreamCodecAvailable,
     NoStreamFormatAvailable,
@@ -47,6 +46,8 @@ class StreamURLResolver(AsyncCooperationMixin):
         self._stream_host: str = ''
         self._stream_params: Optional[StreamParams] = None
         self._attempts_for_no_stream: int = 0
+        self._stream_urls: List[str] = []
+        self._url_index: int = 0
 
     @property
     def stream_url(self) -> str:
@@ -56,26 +57,20 @@ class StreamURLResolver(AsyncCooperationMixin):
     def stream_host(self) -> str:
         return self._stream_host
 
-    @property
-    def use_alternative_stream(self) -> bool:
-        return self._stream_param_holder.use_alternative_stream
-
-    @use_alternative_stream.setter
-    def use_alternative_stream(self, value: bool) -> None:
-        self._stream_param_holder.use_alternative_stream = value
-
     def reset(self) -> None:
         self._stream_url = ''
         self._stream_host = ''
         self._stream_params = None
         self._attempts_for_no_stream = 0
+        self._stream_urls = []
+        self._url_index = 0
 
     def rotate_routes(self) -> None:
-        self.use_alternative_stream = not self.use_alternative_stream
+        pass
 
     def __call__(self, source: Observable[StreamParams]) -> Observable[str]:
         self.reset()
-        return self._solve(source).pipe(  # type: ignore
+        return self._solve(source).pipe(
             ops.do_action(on_error=self._before_retry),
             utils_ops.retry(delay=1, should_retry=self._should_retry),
         )
@@ -98,27 +93,31 @@ class StreamURLResolver(AsyncCooperationMixin):
                         f'Getting the live stream url... '
                         f'qn: {params.quality_number}, '
                         f'format: {params.stream_format}, '
-                        f'api platform: {params.api_platform}, '
-                        f'use alternative stream: {params.use_alternative_stream}'
+                        f'api platform: {params.api_platform}'
                     )
-                    url = self._call_coroutine(
+                    self._stream_urls = self._call_coroutine(
                         self._live.get_live_stream_url(
                             params.quality_number,
                             api_platform=params.api_platform,
                             stream_format=params.stream_format,
-                            select_alternative=params.use_alternative_stream,
                         )
+                    )
+                    self._url_index = 0
+                    url = self._stream_urls[0]
+                    logger.debug(
+                        f"Got {len(self._stream_urls)} available stream urls：{self.stream_urls}"
                     )
                 except Exception as e:
                     logger.warning(f'Failed to get live stream url: {repr(e)}')
                     observer.on_error(e)
-                else:
-                    logger.info(f"Got live stream url: '{url}'")
-                    self._stream_url = url
-                    self._stream_host = urlparse(url).hostname or ''
-                    self._stream_params = params
-                    self._attempts_for_no_stream = 0
-                    observer.on_next(url)
+                    return
+
+                logger.info(f"Got live stream url: '{url}'")
+                self._stream_url = url
+                self._stream_host = urlparse(url).hostname or ''
+                self._stream_params = params
+                self._attempts_for_no_stream = 0
+                observer.on_next(url)
 
             return source.subscribe(
                 on_next, observer.on_error, observer.on_completed, scheduler=scheduler
@@ -141,21 +140,28 @@ class StreamURLResolver(AsyncCooperationMixin):
             return False
 
     def _should_retry(self, exc: Exception) -> bool:
-        if isinstance(
+        return isinstance(
             exc,
             (
                 NoStreamAvailable,
                 NoStreamCodecAvailable,
                 NoStreamFormatAvailable,
                 NoStreamQualityAvailable,
-                NoAlternativeStreamAvailable,
             ),
-        ):
-            return True
-        else:
-            return False
+        )
 
     def _before_retry(self, exc: Exception) -> None:
+        self._url_index += 1
+        if self._url_index < len(self._stream_urls):
+            url = self._stream_urls[self._url_index]
+            logger.info(
+                f'Trying stream url {self._url_index + 1}/{len(self._stream_urls)}: {url}'
+            )
+            self._stream_url = url
+            self._stream_host = urlparse(url).hostname or ''
+            return
+
+        self._url_index = 0
         try:
             raise exc
         except (NoStreamAvailable, NoStreamCodecAvailable, NoStreamFormatAvailable):
@@ -164,30 +170,19 @@ class StreamURLResolver(AsyncCooperationMixin):
                 qn = self._stream_param_holder.real_quality_number
                 print(exc)
                 logger.warning(
-                    f'Due to {type(exc).__name__}：{exc},' +
-                    f'The specified stream quality ({qn}) is not available, ' +
-                    f'will using the stream quality ({self._stream_param_holder.fall_back_quality(qn)}) instead.'
+                    f'Due to {type(exc).__name__}：{exc},'
+                    + f'The specified stream quality ({qn}) is not available, '
+                    + f'will using the stream quality ({self._stream_param_holder.fall_back_quality(qn)}) instead.'
                 )
                 self._run_coroutine(self._live_monitor.check_live_status())
                 self._attempts_for_no_stream = 0
         except NoStreamQualityAvailable:
             qn = self._stream_param_holder.real_quality_number
             logger.warning(
-                f'The specified stream quality ({qn}) is not available, ' +
-                f'will using the stream quality ({self._stream_param_holder.fall_back_quality(qn)}) instead.'
+                f'The specified stream quality ({qn}) is not available, '
+                + f'will using the stream quality ({self._stream_param_holder.fall_back_quality(qn)}) instead.'
             )
-        except NoAlternativeStreamAvailable:
-            logger.debug(
-                'No alternative stream url available, '
-                'will using the primary stream url instead.'
-            )
-            self._stream_param_holder.use_alternative_stream = False
-            # self._stream_param_holder.rotate_api_platform()  # XXX: use web api only
-        except LiveRoomHidden:
-            pass
-        except LiveRoomLocked:
-            pass
-        except LiveRoomEncrypted:
+        except (LiveRoomHidden, LiveRoomLocked, LiveRoomEncrypted):
             pass
         except Exception:
             pass

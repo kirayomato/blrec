@@ -54,10 +54,5 @@ class StreamParser:
             logger.warning(f'Failed to parse stream: {repr(exc)}')
             if 'Unsupported video codec: 12' in exc.args[0]:
                 self._stream_param_holder.codec_unavailable = True
-            elif not self._stream_param_holder.use_alternative_stream:
-                self._stream_param_holder.use_alternative_stream = True
-            else:
-                self._stream_param_holder.use_alternative_stream = False
-                # self._stream_param_holder.rotate_api_platform()  # XXX: use web api only  # noqa
         except Exception:
             pass
