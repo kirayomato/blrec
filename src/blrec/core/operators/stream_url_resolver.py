@@ -105,7 +105,7 @@ class StreamURLResolver(AsyncCooperationMixin):
                     self._url_index = 0
                     url = self._stream_urls[0]
                     logger.debug(
-                        f"Got {len(self._stream_urls)} available stream urls：{self.stream_urls}"
+                        f"Got {len(self._stream_urls)} available stream urls：{self._stream_urls}"
                     )
                 except Exception as e:
                     logger.warning(f'Failed to get live stream url: {repr(e)}')
