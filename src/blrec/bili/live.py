@@ -496,6 +496,7 @@ class Live:
                                 f'Use stream format: {_format[j]}, codec: {_codec[k]}'
                             )
                         return resolution
+                    await asyncio.sleep(1)
             except NoStreamQualityAvailable:
                 i = (i + 1) % len(_qn)
             except NoStreamFormatAvailable:
@@ -550,7 +551,9 @@ class Live:
                             break
 
         except Exception as e:
-            self._logger.debug(f'Failed to download video: {repr(e)}')
+            self._logger.debug(
+                f'Failed to download video: {type(e).__name__}({e}), {url}'
+            )
             if os.path.exists(output_file):
                 os.remove(output_file)
             return None
