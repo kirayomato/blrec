@@ -262,6 +262,7 @@ class Postprocessor(
             if not self._debug:
                 if self._should_delete_source_files(remuxing_result):
                     await discard_file(video_path)
+                    await discard_file(metadata_path, 'DEBUG')
         elif self.inject_extra_metadata:
             self._status = PostprocessorStatus.INJECTING
             result_path = await self._inject_extra_metadata(video_path)
@@ -341,9 +342,6 @@ class Postprocessor(
             result_path = _in_path if ext == 'm4s' else in_path
 
         self._logger.debug(f'ffmpeg output:\n{remux_result.output}')
-
-        if not self._debug and ext == '.flv':
-            await discard_file(metadata_path, 'DEBUG')
 
         return result_path, remux_result
 
