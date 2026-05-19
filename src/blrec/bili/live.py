@@ -478,7 +478,7 @@ class Live:
 
     async def get_live_stream_resolution(self) -> Tuple[int, int]:
         start_time = time.time()
-        max_wait = 60  # 最大重试时间60秒
+        max_wait = 300  # 最大重试时间300秒
         _qn = [10000, 250]
         _format = ['flv', 'ts', 'fmp4']
         _codec = ['avc', 'hevc']
