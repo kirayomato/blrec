@@ -344,18 +344,12 @@ class LoggingSettings(BaseModel):
 
 class SpaceSettings(BaseModel):
     check_interval: int = 60  # 1 minutes
-    space_threshold: int = 1024**3  # 1 GB
+    space_threshold: Annotated[int, Field(ge=1024**3)] = 1024**3  # 1 GB
     recycle_records: bool = False
 
     @validator('check_interval')
     def _validate_interval(cls, value: int) -> int:
         allowed_values = frozenset((0, 10, 30, *(60 * i for i in (1, 3, 5, 10))))
-        cls._validate_with_collection(value, allowed_values)
-        return value
-
-    @validator('space_threshold')
-    def _validate_threshold(cls, value: int) -> int:
-        allowed_values = frozenset(1024**3 * i for i in (1, 3, 5, 10, 20, 50, 100))
         cls._validate_with_collection(value, allowed_values)
         return value
 

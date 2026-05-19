@@ -16,8 +16,7 @@ __all__ = 'SpaceMonitor', 'SpaceEventListener'
 class SpaceEventListener(EventListener):
     async def on_space_no_enough(
         self, path: str, threshold: int, disk_usage: DiskUsage
-    ) -> None:
-        ...
+    ) -> None: ...
 
 
 class SpaceMonitor(
@@ -28,7 +27,7 @@ class SpaceMonitor(
         path: str,
         *,
         check_interval: int = 60,  # seconds
-        space_threshold: int = 1073741824,  # 1GB
+        space_threshold: int = 1024**3,  # 1GB
     ) -> None:
         super().__init__()
         self.path = path
