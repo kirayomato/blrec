@@ -532,6 +532,7 @@ class RecordTask(LiveEventListener):
     async def on_live_stream_available(self, live):
         if self._recorder_enabled or self._recorder.danmaku_only:
             return
+        live.cookie = self._danmaku_client.headers.get('Cookie', '')
         _record, area, (w, h) = await live._should_auto_record()
         if _record and self._auto_record_radio:
             self._logger.info(
