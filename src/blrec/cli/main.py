@@ -43,7 +43,9 @@ def cli_main(
         '--log-dir',
         help='path of directory to store log files (overwrite setting)',
     ),
-    progress: bool = typer.Option(True, help='display progress'),
+    progress: bool = typer.Option(
+        True, '--progress/--no-progress', is_flag=True, help='display progress'
+    ),
     host: str = typer.Option('localhost', help='webapp host bind'),
     port: int = typer.Option(2233, help='webapp port bind'),
     open: bool = typer.Option(False, help='open webapp in default browser'),
