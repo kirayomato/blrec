@@ -12,7 +12,8 @@ import aiohttp
 from loguru import logger
 from tenacity import retry, stop_after_delay, wait_exponential
 
-from .exceptions import ApiRequestError
+from .exceptions import ApiRequestError, CookieExpiredException
+from blrec.exception import submit_exception
 from . import wbi
 from .typing import JsonResponse, QualityNumber, ResponseData
 from ..utils.string import extract_uid_from_cookie, extract_buvid_from_cookie
@@ -351,6 +352,9 @@ class WebApi(BaseApi):
         except Exception as e:
             return False
         if json_res.get('code') != 0:
+            submit_exception(
+                CookieExpiredException(f"Cookie Expired: {repr(json_res)}")
+            )
             return False
 
         # 从 cookie 中提取信息
