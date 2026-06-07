@@ -511,7 +511,7 @@ class Live:
             # 检查是否超时
             if time.time() - start_time > max_wait:
                 self._logger.warning(
-                    'Get live stream resolution timeout after 60 seconds'
+                    f'Get live stream resolution timeout after {max_wait} seconds'
                 )
                 break
             await asyncio.sleep(wait_time)
