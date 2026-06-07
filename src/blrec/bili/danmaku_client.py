@@ -25,6 +25,7 @@ from .helpers import get_nav
 
 from ..event.event_emitter import EventEmitter, EventListener
 from ..exception import exception_callback, submit_exception
+from .exceptions import CookieExpiredException
 from ..utils.mixins import AsyncStoppableMixin
 from ..utils.string import extract_buvid_from_cookie, extract_uid_from_cookie
 from .api import AppApi, WebApi, generate_buvid3
@@ -33,10 +34,6 @@ from .typing import ApiPlatform, Danmaku
 from datetime import datetime
 
 __all__ = 'DanmakuClient', 'DanmakuListener', 'Danmaku', 'DanmakuCommand'
-
-
-class CookieExpiredException(Exception):
-    pass
 
 
 class DanmakuListener(EventListener):

@@ -42,3 +42,7 @@ class NoStreamQualityAvailable(Exception):
 
 class NoAlternativeStreamAvailable(Exception):
     pass
+
+
+class CookieExpiredException(Exception):
+    pass
