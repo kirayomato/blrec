@@ -511,7 +511,7 @@ class Live:
                 k = (k + 1) % len(_codec)
             except Exception as e:
                 self._logger.warning(f'Failed to get live stream url: {repr(e)}')
-
+            i = (i + 1) % len(_qn)
             # 如果都失败，等待一段时间后重试（指数退避）
             wait_time = min(5, 2 ** ((time.time() - start_time) / 5))
             # 检查是否超时
