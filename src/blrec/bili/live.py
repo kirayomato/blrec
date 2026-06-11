@@ -6,6 +6,7 @@ import time
 from typing import Any, Dict, List, Tuple
 from urllib.parse import urlparse
 import aiohttp
+import requests
 from jsonpath import jsonpath
 from tenacity import retry, retry_if_exception_type, stop_after_delay, wait_exponential
 
@@ -75,6 +76,8 @@ class Live:
             trust_env=True,
             timeout=timeout,
         )
+        self._requests_session = requests.Session()
+        self._requests_session.headers.update(self._headers)
         self._appapi = AppApi(self._session, self.headers, room_id=room_id)
         self._webapi = WebApi(self._session, self.headers, room_id=room_id)
 
@@ -119,6 +122,7 @@ class Live:
         self._update_headers()
         self._webapi.headers = self.headers
         self._appapi.headers = self.headers
+        self._requests_session.headers.update(self._headers)
 
     @property
     def cookie(self) -> str:
@@ -130,6 +134,7 @@ class Live:
         self._update_headers()
         self._webapi.headers = self.headers
         self._appapi.headers = self.headers
+        self._requests_session.headers.update(self._headers)
 
     @property
     def headers(self) -> Dict[str, str]:
@@ -180,6 +185,7 @@ class Live:
 
     async def deinit(self) -> None:
         await self._session.close()
+        self._requests_session.close()
 
     def has_no_flv_streams(self) -> bool:
         return self._no_flv_stream
@@ -539,21 +545,23 @@ class Live:
             os.remove(output_file)
 
         try:
-            async with self._session.get(
-                url, headers=self._headers, timeout=10
-            ) as response:
+
+            def _fetch():
+                nonlocal downloaded
+                response = self._requests_session.get(url, stream=True, timeout=30)
+                self._logger.info('Response received')
                 response.raise_for_status()
                 with open(output_file, 'ab') as f:
-                    async for chunk in response.content.iter_chunked(chunk_size):
+                    for chunk in response.iter_content(chunk_size=chunk_size):
                         f.write(chunk)
                         downloaded += len(chunk)
                         if downloaded >= max_bytes:
                             break
 
+            await asyncio.to_thread(_fetch)
+
         except Exception as e:
-            self._logger.debug(
-                f'Failed to download video: {type(e).__name__}({e}), {url}'
-            )
+            self._logger.warning(f'Failed to download video: {repr(e)}, {url}')
             if os.path.exists(output_file):
                 os.remove(output_file)
             return None
