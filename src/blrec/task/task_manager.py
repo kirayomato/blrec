@@ -48,7 +48,7 @@ class RecordTaskManager:
         assert settings_list is not None
 
         for settings in settings_list:
-            asyncio.create_task(self._add_task_async(settings))
+            await self._add_task_async(settings)
             await asyncio.sleep(uniform(1, 2))
         logger.info('Load all tasks complete')
 
@@ -114,7 +114,7 @@ class RecordTaskManager:
             if settings.enable_recorder or bool(os.environ['BLREC_DANMAKU_ONLY']):
                 await task.enable_recorder()
             if task._live.is_living():
-                await task.on_live_stream_available(task._live)
+                asyncio.create_task(task.on_live_stream_available(task._live))
 
         except BaseException as e:
             logger.error(f'Failed to add task {settings.room_id} due to: {repr(e)}')
