@@ -549,7 +549,6 @@ class Live:
             def _fetch():
                 nonlocal downloaded
                 response = self._requests_session.get(url, stream=True, timeout=30)
-                self._logger.info('Response received')
                 response.raise_for_status()
                 with open(output_file, 'ab') as f:
                     for chunk in response.iter_content(chunk_size=chunk_size):
