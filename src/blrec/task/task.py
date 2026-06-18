@@ -533,7 +533,11 @@ class RecordTask(LiveEventListener):
         if self._recorder_enabled or self._recorder.danmaku_only:
             return
         live.cookie = self._danmaku_client.headers.get('Cookie', '')
-        _record, area, (w, h) = await live._should_auto_record()
+        try:
+            _record, area, (w, h) = await live._should_auto_record()
+        except asyncio.CancelledError:
+            self._logger.warning('Auto record check cancelled')
+            return
         if _record and self._auto_record_radio:
             self._logger.info(
                 f'Detected Live Area: {area}, Resolution: {w}x{h}, Start temporarily recording'
