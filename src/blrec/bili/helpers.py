@@ -6,7 +6,7 @@ from jsonpath import jsonpath
 from ..exception import NotFoundError
 from .api import WebApi
 from .exceptions import ApiRequestError
-from .net import connector, timeout
+from .net import get_connector, timeout
 from .typing import QualityNumber, ResponseData, StreamCodec, StreamFormat
 
 __all__ = 'room_init', 'ensure_room_id', 'get_nav'
@@ -14,7 +14,7 @@ __all__ = 'room_init', 'ensure_room_id', 'get_nav'
 
 async def room_init(room_id: int) -> ResponseData:
     async with aiohttp.ClientSession(
-        connector=connector,
+        connector=get_connector(),
         connector_owner=False,
         raise_for_status=True,
         trust_env=True,
@@ -39,7 +39,7 @@ async def ensure_room_id(room_id: int) -> int:
 
 async def get_nav(cookie: str) -> ResponseData:
     async with aiohttp.ClientSession(
-        connector=connector,
+        connector=get_connector(),
         connector_owner=False,
         raise_for_status=True,
         trust_env=True,

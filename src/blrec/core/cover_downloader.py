@@ -8,7 +8,7 @@ from loguru import logger
 from tenacity import retry, stop_after_attempt, wait_fixed
 
 from blrec.bili.live import Live
-from blrec.bili.net import connector, timeout
+from blrec.bili.net import get_connector, timeout
 from blrec.event.event_emitter import EventEmitter, EventListener
 from blrec.exception import submit_exception
 from blrec.path import cover_path
@@ -98,7 +98,7 @@ class CoverDownloader(
     @retry(reraise=True, wait=wait_fixed(1), stop=stop_after_attempt(3))
     async def _fetch_cover(self, url: str) -> bytes:
         async with aiohttp.ClientSession(
-            connector=connector,
+            connector=get_connector(),
             connector_owner=False,
             raise_for_status=True,
             trust_env=True,
