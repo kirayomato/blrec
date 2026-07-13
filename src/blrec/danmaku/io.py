@@ -107,7 +107,7 @@ class DanmakuWriter:
     def __init__(self, path: str):
         self._path = path
         self._file = None
-        self.last = 0
+        self.last = time()
 
     async def _write(self, s: str):
         await self._file.write(s)
@@ -121,7 +121,8 @@ class DanmakuWriter:
         return self
 
     async def __aexit__(self, exc_type, exc, tb):  # type: ignore
-        await self.complete()
+        if self._file is not None and not self._file.closed:
+            await self.complete()
 
     async def init(self) -> None:
         self._file = await aiofiles.open(self._path, 'wt', encoding='utf8')
