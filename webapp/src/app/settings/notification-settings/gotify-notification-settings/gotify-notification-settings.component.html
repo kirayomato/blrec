@@ -1,0 +1,20 @@
+<app-sub-page pageTitle="Gotify 通知">
+  <ng-template appSubPageContent>
+    <app-page-section>
+      <app-notifier-settings [settings]="notifierSettings" keyOfSettings="gotifyNotification"></app-notifier-settings>
+    </app-page-section>
+
+    <app-page-section name="Gotify">
+      <app-gotify-settings [settings]="gotifySettings"></app-gotify-settings>
+    </app-page-section>
+
+    <app-page-section name="事件">
+      <app-event-settings [settings]="notificationSettings" keyOfSettings="gotifyNotification"></app-event-settings>
+    </app-page-section>
+
+    <app-page-section name="消息">
+      <app-message-template-settings [settings]="messageTemplateSettings" keyOfSettings="gotifyNotification">
+      </app-message-template-settings>
+    </app-page-section>
+  </ng-template>
+</app-sub-page>

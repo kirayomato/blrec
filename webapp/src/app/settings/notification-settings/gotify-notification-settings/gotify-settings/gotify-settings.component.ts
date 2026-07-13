@@ -6,37 +6,33 @@ import {
   OnChanges,
   ChangeDetectorRef,
 } from '@angular/core';
-import { FormBuilder, FormControl, FormGroup } from '@angular/forms';
+import {
+  FormBuilder,
+  FormControl,
+  FormGroup,
+  Validators,
+} from '@angular/forms';
 
-import { Observable } from 'rxjs';
 import mapValues from 'lodash-es/mapValues';
 
-import { NotifierSettings } from '../../../../shared/setting.model';
+import { GotifySettings } from '../../../shared/setting.model';
+import { filterValueChanges } from '../../../shared/rx-operators';
 import {
   SettingsSyncService,
   SyncStatus,
   calcSyncStatus,
-} from '../../../../shared/services/settings-sync.service';
+} from '../../../shared/services/settings-sync.service';
 import { SYNC_FAILED_WARNING_TIP } from 'src/app/settings/shared/constants/form';
 
 @Component({
-  selector: 'app-notifier-settings',
-  templateUrl: './notifier-settings.component.html',
-  styleUrls: ['./notifier-settings.component.scss'],
+  selector: 'app-gotify-settings',
+  templateUrl: './gotify-settings.component.html',
+  styleUrls: ['./gotify-settings.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class NotifierSettingsComponent implements OnInit, OnChanges {
-  @Input() settings!: NotifierSettings;
-  @Input() keyOfSettings!:
-    | 'emailNotification'
-    | 'serverchanNotification'
-    | 'pushdeerNotification'
-    | 'pushplusNotification'
-    | 'telegramNotification'
-    | 'barkNotification'
-    | 'gotifyNotification';
-
-  syncStatus!: SyncStatus<NotifierSettings>;
+export class GotifySettingsComponent implements OnInit, OnChanges {
+  @Input() settings!: GotifySettings;
+  syncStatus!: SyncStatus<GotifySettings>;
 
   readonly settingsForm: FormGroup;
   readonly syncFailedWarningTip = SYNC_FAILED_WARNING_TIP;
@@ -47,12 +43,17 @@ export class NotifierSettingsComponent implements OnInit, OnChanges {
     private settingsSyncService: SettingsSyncService
   ) {
     this.settingsForm = formBuilder.group({
-      enabled: [''],
+      gotifyUrl: ['', [Validators.pattern(/^https?:\/\/.+/)]],
+      gotifyToken: ['', [Validators.required]],
     });
   }
 
-  get enabledControl() {
-    return this.settingsForm.get('enabled') as FormControl;
+  get gotifyUrlControl() {
+    return this.settingsForm.get('gotifyUrl') as FormControl;
+  }
+
+  get gotifyTokenControl() {
+    return this.settingsForm.get('gotifyToken') as FormControl;
   }
 
   ngOnChanges(): void {
@@ -63,9 +64,11 @@ export class NotifierSettingsComponent implements OnInit, OnChanges {
   ngOnInit(): void {
     this.settingsSyncService
       .syncSettings(
-        this.keyOfSettings,
+        'gotifyNotification',
         this.settings,
-        this.settingsForm.valueChanges as Observable<NotifierSettings>
+        this.settingsForm.valueChanges.pipe(
+          filterValueChanges<Partial<GotifySettings>>(this.settingsForm)
+        )
       )
       .subscribe((detail) => {
         this.syncStatus = { ...this.syncStatus, ...calcSyncStatus(detail) };

@@ -179,6 +179,13 @@ export interface BarkSettings {
 
 export const KEYS_OF_BARK_SETTINGS = ['server', 'pushkey'] as const;
 
+export interface GotifySettings {
+  gotifyUrl: string;
+  gotifyToken: string;
+}
+
+export const KEYS_OF_GOTIFY_SETTINGS = ['gotifyUrl', 'gotifyToken'] as const;
+
 export interface PushplusSettings {
   token: string;
   topic: string;
@@ -336,6 +343,21 @@ export interface BarkMessageTemplateSettings {
   errorMessageContent: string;
 }
 
+export interface GotifyMessageTemplateSettings {
+  beganMessageType: MessageType;
+  beganMessageTitle: string;
+  beganMessageContent: string;
+  endedMessageType: MessageType;
+  endedMessageTitle: string;
+  endedMessageContent: string;
+  spaceMessageType: MessageType;
+  spaceMessageTitle: string;
+  spaceMessageContent: string;
+  errorMessageType: MessageType;
+  errorMessageTitle: string;
+  errorMessageContent: string;
+}
+
 export type EmailNotificationSettings = EmailSettings &
   NotifierSettings &
   NotificationSettings &
@@ -365,6 +387,11 @@ export type BarkNotificationSettings = BarkSettings &
   NotifierSettings &
   NotificationSettings &
   BarkMessageTemplateSettings;
+
+export type GotifyNotificationSettings = GotifySettings &
+  NotifierSettings &
+  NotificationSettings &
+  GotifyMessageTemplateSettings;
 
 export interface WebhookEventSettings {
   liveBegan: boolean;
@@ -407,6 +434,7 @@ export interface Settings {
   pushplusNotification: PushplusNotificationSettings;
   telegramNotification: TelegramNotificationSettings;
   barkNotification: BarkNotificationSettings;
+  gotifyNotification: GotifyNotificationSettings;
   webhooks: WebhookSettings[];
 }
 

@@ -1,0 +1,30 @@
+<form nz-form [formGroup]="settingsForm">
+  <nz-form-item class="setting-item">
+    <nz-form-label class="setting-label" nzFor="gotifyUrl" nzNoColon>Gotify URL</nz-form-label>
+    <nz-form-control class="setting-control input" nzHasFeedback [nzErrorTip]="gotifyUrlErrorTip"
+      [nzWarningTip]="syncFailedWarningTip" [nzValidateStatus]="
+        gotifyUrlControl.valid && !syncStatus.gotifyUrl ? 'warning' : gotifyUrlControl
+      ">
+      <input id="gotifyUrl" type="url" placeholder="https://your-gotify-server.com" nz-input formControlName="gotifyUrl" />
+      <ng-template #gotifyUrlErrorTip let-control>
+        <ng-container *ngIf="control.hasError('pattern')">
+          Gotify URL 无效
+        </ng-container>
+      </ng-template>
+    </nz-form-control>
+  </nz-form-item>
+  <nz-form-item class="setting-item">
+    <nz-form-label class="setting-label" nzFor="gotifyToken" nzNoColon nzRequired>Application Token</nz-form-label>
+    <nz-form-control class="setting-control input" nzHasFeedback [nzErrorTip]="gotifyTokenErrorTip"
+      [nzWarningTip]="syncFailedWarningTip" [nzValidateStatus]="
+        gotifyTokenControl.valid && !syncStatus.gotifyToken ? 'warning' : gotifyTokenControl
+      ">
+      <input id="gotifyToken" type="text" placeholder="" required nz-input formControlName="gotifyToken" />
+      <ng-template #gotifyTokenErrorTip let-control>
+        <ng-container *ngIf="control.hasError('required')">
+          请输入 Application Token！
+        </ng-container>
+      </ng-template>
+    </nz-form-control>
+  </nz-form-item>
+</form>

@@ -32,6 +32,7 @@ KeyOfSettings = Literal[
     'pushplus_notification',
     'telegram_notification',
     'bark_notification',
+    'gotify_notification',
     'webhooks',
 ]
 

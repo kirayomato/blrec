@@ -8,6 +8,7 @@ import { TelegramNotificationSettingsResolver } from './shared/services/telegram
 import { ServerchanNotificationSettingsResolver } from './shared/services/serverchan-notification-settings.resolver';
 import { PushdeerNotificationSettingsResolver } from './shared/services/pushdeer-notification-settings.resolver';
 import { BarkNotificationSettingsResolver } from './shared/services/bark-notification-settings.resolver';
+import { GotifyNotificationSettingsResolver } from './shared/services/gotify-notification-settings.resolver';
 import { WebhookSettingsResolver } from './shared/services/webhook-settings.resolver';
 import { SettingsComponent } from './settings.component';
 import { EmailNotificationSettingsComponent } from './notification-settings/email-notification-settings/email-notification-settings.component';
@@ -16,6 +17,7 @@ import { PushdeerNotificationSettingsComponent } from './notification-settings/p
 import { PushplusNotificationSettingsComponent } from './notification-settings/pushplus-notification-settings/pushplus-notification-settings.component';
 import { TelegramNotificationSettingsComponent } from './notification-settings/telegram-notification-settings/telegram-notification-settings.component';
 import { BarkNotificationSettingsComponent } from './notification-settings/bark-notification-settings/bark-notification-settings.component';
+import { GotifyNotificationSettingsComponent } from './notification-settings/gotify-notification-settings/gotify-notification-settings.component';
 import { WebhookManagerComponent } from './webhook-settings/webhook-manager/webhook-manager.component';
 
 const routes: Routes = [
@@ -59,6 +61,13 @@ const routes: Routes = [
     component: BarkNotificationSettingsComponent,
     resolve: {
       settings: BarkNotificationSettingsResolver,
+    },
+  },
+  {
+    path: 'gotify-notification',
+    component: GotifyNotificationSettingsComponent,
+    resolve: {
+      settings: GotifyNotificationSettingsResolver,
     },
   },
   {

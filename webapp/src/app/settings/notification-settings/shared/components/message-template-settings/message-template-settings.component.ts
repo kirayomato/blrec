@@ -39,7 +39,8 @@ export class MessageTemplateSettingsComponent implements OnInit, OnChanges {
     | 'pushdeerNotification'
     | 'pushplusNotification'
     | 'telegramNotification'
-    | 'barkNotification';
+    | 'barkNotification'
+    | 'gotifyNotification';
 
   messageTypes!: MessageType[];
   beganMessageTemplateSettings!: CommonMessageTemplateSettings;
@@ -69,6 +70,9 @@ export class MessageTemplateSettingsComponent implements OnInit, OnChanges {
         break;
       case 'telegramNotification':
         this.messageTypes = ['markdown', 'html'];
+        break;
+      case 'gotifyNotification':
+        this.messageTypes = ['text', 'markdown', 'html'];
         break;
     }
   }

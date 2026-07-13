@@ -72,7 +72,10 @@ import { BaseLiveApiUrlEditDialogComponent } from './bili-api-settings/base-live
 import { BasePlayInfoApiUrlEditDialogComponent } from './bili-api-settings/base-play-info-api-url-edit-dialog/base-play-info-api-url-edit-dialog.component';
 import { BarkNotificationSettingsComponent } from './notification-settings/bark-notification-settings/bark-notification-settings.component';
 import { BarkSettingsComponent } from './notification-settings/bark-notification-settings/bark-settings/bark-settings.component';
+import { GotifyNotificationSettingsComponent } from './notification-settings/gotify-notification-settings/gotify-notification-settings.component';
+import { GotifySettingsComponent } from './notification-settings/gotify-notification-settings/gotify-settings/gotify-settings.component';
 import { BarkNotificationSettingsResolver } from './shared/services/bark-notification-settings.resolver';
+import { GotifyNotificationSettingsResolver } from './shared/services/gotify-notification-settings.resolver';
 
 @NgModule({
   declarations: [
@@ -103,6 +106,8 @@ import { BarkNotificationSettingsResolver } from './shared/services/bark-notific
     TelegramSettingsComponent,
     BarkNotificationSettingsComponent,
     BarkSettingsComponent,
+    GotifyNotificationSettingsComponent,
+    GotifySettingsComponent,
     NotifierSettingsComponent,
     WebhookManagerComponent,
     WebhookEditDialogComponent,
@@ -153,6 +158,7 @@ import { BarkNotificationSettingsResolver } from './shared/services/bark-notific
     PushplusNotificationSettingsResolver,
     TelegramNotificationSettingsResolver,
     BarkNotificationSettingsResolver,
+    GotifyNotificationSettingsResolver,
     WebhookSettingsResolver,
   ],
 })
