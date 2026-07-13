@@ -12,6 +12,7 @@ from .common import (
     parse_metadata,
     find_metadata_tag,
 )
+from .exceptions import FlvHeaderError
 from .operators import JoinPoint
 from .utils import format_timestamp
 from ..path import extra_metadata_path
@@ -53,7 +54,7 @@ def is_valid_flv_file(path: str) -> bool:
 
         try:
             flv_header = reader.read_header()
-        except EOFError:
+        except (EOFError, FlvHeaderError):
             return False
 
         MAX_TAGS_TO_FIND = 50
