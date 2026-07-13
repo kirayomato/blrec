@@ -7,8 +7,11 @@
       ">
       <input id="gotifyUrl" type="url" placeholder="https://your-gotify-server.com" nz-input formControlName="gotifyUrl" />
       <ng-template #gotifyUrlErrorTip let-control>
+        <ng-container *ngIf="control.hasError('required')">
+          请输入 Gotify 服务器地址！
+        </ng-container>
         <ng-container *ngIf="control.hasError('pattern')">
-          Gotify URL 无效
+          URL 格式无效
         </ng-container>
       </ng-template>
     </nz-form-control>

@@ -351,11 +351,11 @@ class Gotify(MessagingProvider):
             "extras": {"client::display": {"contentType": "text/markdown"}},
         }
 
-        push_url = f"{self.gotify_url}/message?token={self.gotify_token}"
+        base_url = self.gotify_url.rstrip('/')
+        push_url = f"{base_url}/message?token={self.gotify_token}"
 
         async with aiohttp.ClientSession(raise_for_status=True) as session:
             async with session.post(push_url, json=payload) as res:
                 response = cast(GotifyResponse, await res.json())
-                # 验证响应是否包含必需的字段
                 if 'id' not in response:
                     raise HTTPException(f"Gotify push error: {response}")

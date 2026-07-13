@@ -456,7 +456,12 @@ class GotifySettings(BaseModel):
         if not value.startswith("http"):
             value = "http://" + value
         value = value.rstrip('/')
-        if not re.fullmatch(r'https?://[a-zA-Z0-9.-]+(:\d+)?', value):
+        try:
+            from urllib.parse import urlparse
+            result = urlparse(value)
+            if not result.scheme or not result.netloc:
+                raise ValueError('gotify_url is invalid')
+        except Exception:
             raise ValueError('gotify_url is invalid')
         return value
 
