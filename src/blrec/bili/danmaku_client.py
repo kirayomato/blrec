@@ -201,7 +201,12 @@ class DanmakuClient(EventEmitter[DanmakuListener], AsyncStoppableMixin):
                     self._logger.warning('Switched to anonymous mode')
 
             self._host_index += 1
-            if self._host_index >= len(self._danmu_info['host_list']):
+            host_list = self._danmu_info.get('host_list', [])
+            if not host_list:
+                self._logger.warning('host_list is empty, updating danmu info')
+                await self._update_danmu_info()
+                self._host_index = 0
+            elif self._host_index >= len(host_list):
                 self._host_index = 0
                 # self._rotate_api_platform()  # XXX: use web api only
                 await self._update_danmu_info()
@@ -212,9 +217,24 @@ class DanmakuClient(EventEmitter[DanmakuListener], AsyncStoppableMixin):
             await self._emit('client_connected')
 
     async def _connect_websocket(self) -> None:
+        # 检查 host_list 是否为空，如果为空则尝试更新
+        max_update_attempts = 3
+        for attempt in range(max_update_attempts):
+            host_list = self._danmu_info.get('host_list', [])
+            if host_list:
+                break
+            self._logger.warning(f'host_list is empty, attempt {attempt + 1}/{max_update_attempts} to update')
+            await self._update_danmu_info()
+        else:
+            raise ConnectionError('Failed to get valid host_list after multiple attempts')
+
+        # 确保 _host_index 在有效范围内
+        if self._host_index >= len(host_list):
+            self._host_index = 0
+
         url = 'wss://{}:{}/sub'.format(
-            self._danmu_info['host_list'][self._host_index]['host'],
-            self._danmu_info['host_list'][self._host_index]['wss_port'],
+            host_list[self._host_index]['host'],
+            host_list[self._host_index]['wss_port'],
         )
         self._logger.debug(f'Connecting WebSocket... {url}')
         try:
