@@ -1,6 +1,7 @@
 import asyncio
 import json
 import os
+import random
 import re
 import time
 from typing import Any, Dict, List, Tuple
@@ -484,45 +485,38 @@ class Live:
                 os.remove(stream)
 
     async def get_live_stream_resolution(self) -> Tuple[int, int]:
-        start_time = time.time()
-        max_wait = 300  # 最大重试时间300秒
         _qn = [10000, 250]
         _format = ['flv', 'ts', 'fmp4']
         _codec = ['avc', 'hevc']
-        i = j = k = 0
-        while True:
-            try:
-                urls = await self.get_live_stream_url(
-                    _qn[i], stream_format=_format[j], stream_codec=_codec[k]
-                )
-                for url in urls:
-                    resolution = await self.get_live_resolution(url)
-                    if resolution != (0, 0):
-                        if j != 0 or k != 0:
-                            self._logger.debug(
-                                f'Use stream format: {_format[j]}, codec: {_codec[k]}'
-                            )
-                        return resolution
-                    await asyncio.sleep(1)
-            except NoStreamQualityAvailable:
-                i = (i + 1) % len(_qn)
-            except NoStreamFormatAvailable:
-                j = (j + 1) % len(_format)
-            except NoStreamCodecAvailable:
-                k = (k + 1) % len(_codec)
-            except Exception as e:
-                self._logger.warning(f'Failed to get live stream url: {repr(e)}')
-            i = (i + 1) % len(_qn)
-            # 如果都失败，等待一段时间后重试（指数退避）
-            wait_time = min(5, 2 ** ((time.time() - start_time) / 5))
-            # 检查是否超时
-            if time.time() - start_time > max_wait:
-                self._logger.warning(
-                    f'Get live stream resolution timeout after {max_wait} seconds'
-                )
-                break
-            await asyncio.sleep(wait_time)
 
+        for qn in _qn:
+            for fmt in _format:
+                for codec in _codec:
+                    try:
+                        urls = await self.get_live_stream_url(
+                            qn, stream_format=fmt, stream_codec=codec
+                        )
+                    except (NoStreamFormatAvailable, NoStreamCodecAvailable):
+                        continue
+                    except Exception as e:
+                        self._logger.warning(
+                            f'Failed to get live stream url '
+                            f'(qn={qn}, format={fmt}, codec={codec}): {repr(e)}'
+                        )
+                        continue
+
+                    for url in urls:
+                        resolution = await self.get_live_resolution(url)
+                        if resolution != (0, 0):
+                            if fmt != 'flv' or codec != 'avc':
+                                self._logger.debug(
+                                    f'Use stream format: {fmt}, codec: {codec}'
+                                )
+                            return resolution
+                        await asyncio.sleep(random.uniform(1, 3))
+
+            await asyncio.sleep(random.uniform(5, 10))
+        self._logger.warning('Get live stream resolution failed')
         return (0, 0)
 
     async def _should_auto_record(self):
@@ -535,7 +529,11 @@ class Live:
         return flag, area, (w, h)
 
     async def _download_video(
-        self, url: str, max_bytes: int = 2621440, chunk_size: int = 8192
+        self,
+        url: str,
+        max_bytes: int = 2621440, # 2.5MB
+        chunk_size: int = 8192,
+        timeout: int = 10,
     ) -> str:
         downloaded = 0
 
@@ -549,7 +547,12 @@ class Live:
 
             def _fetch():
                 nonlocal downloaded
-                response = self._requests_session.get(url, stream=True, timeout=30)
+                response = self._requests_session.get(
+                    url,
+                    stream=True,
+                    headers=self._headers,
+                    timeout=timeout,
+                )
                 response.raise_for_status()
                 with open(output_file, 'ab') as f:
                     for chunk in response.iter_content(chunk_size=chunk_size):
