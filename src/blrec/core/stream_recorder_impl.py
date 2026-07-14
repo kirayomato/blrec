@@ -84,6 +84,7 @@ class StreamRecorderImpl(
         self._live = live
         self._live_monitor = live_monitor
         self._session = requests.Session()
+        self._session.trust_env = False
 
         self._recording_mode = recording_mode
         self._buffer_size = buffer_size or io.DEFAULT_BUFFER_SIZE

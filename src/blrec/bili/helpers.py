@@ -17,7 +17,7 @@ async def room_init(room_id: int) -> ResponseData:
         connector=get_connector(),
         connector_owner=False,
         raise_for_status=True,
-        trust_env=True,
+        trust_env=False,
         timeout=timeout,
     ) as session:
         api = WebApi(session, room_id=room_id)
@@ -42,7 +42,7 @@ async def get_nav(cookie: str) -> ResponseData:
         connector=get_connector(),
         connector_owner=False,
         raise_for_status=True,
-        trust_env=True,
+        trust_env=False,
         timeout=timeout,
     ) as session:
         headers = {

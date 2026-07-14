@@ -101,7 +101,7 @@ class CoverDownloader(
             connector=get_connector(),
             connector_owner=False,
             raise_for_status=True,
-            trust_env=True,
+            trust_env=False,
             timeout=timeout,
         ) as session:
             async with session.get(url) as response:

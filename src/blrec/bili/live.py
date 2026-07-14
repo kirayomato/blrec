@@ -73,10 +73,11 @@ class Live:
             connector=get_connector(),
             connector_owner=False,
             raise_for_status=True,
-            trust_env=True,
+            trust_env=False,
             timeout=timeout,
         )
         self._requests_session = requests.Session()
+        self._requests_session.trust_env = False
         self._requests_session.headers.update(self._headers)
         self._appapi = AppApi(self._session, self.headers, room_id=room_id)
         self._webapi = WebApi(self._session, self.headers, room_id=room_id)
