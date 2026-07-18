@@ -2,7 +2,7 @@ import asyncio
 import os
 from contextlib import suppress
 from pathlib import PurePath
-from typing import Iterator, List, Optional
+from typing import Dict, Iterator, List, Optional
 
 from blrec.bili.danmaku_client import DanmakuClient
 from blrec.bili.live import Live
@@ -71,6 +71,7 @@ class RecordTask(LiveEventListener):
         self._logger_context = {'room_id': self._live.room_id}
         self._logger = logger.bind(**self._logger_context)
         self._auto_record_radio = auto_record_radio
+        self._real_headers: Dict[str, str] = self._live.headers
 
     @property
     def ready(self) -> bool:
@@ -232,6 +233,7 @@ class RecordTask(LiveEventListener):
     @user_agent.setter
     def user_agent(self, value: str) -> None:
         self._live.user_agent = value
+        self._real_headers = self._live.headers
         if hasattr(self, '_danmaku_client'):
             self._danmaku_client.headers = self._live.headers
 
@@ -242,7 +244,8 @@ class RecordTask(LiveEventListener):
     @cookie.setter
     def cookie(self, value: str) -> None:
         self._live.cookie = value
-        if hasattr(self, '_danmaku_client'):
+        self._real_headers = self._live.headers
+        if hasattr(self, '_danmaku_client') and self._recorder_enabled:
             self._danmaku_client.headers = self._live.headers
 
     @property
@@ -466,6 +469,8 @@ class RecordTask(LiveEventListener):
             return
         self._monitor_enabled = True
 
+        if not self._recorder_enabled:
+            await self._danmaku_client._set_anonymous_cookie()
         await self._danmaku_client.start()
         self._live_monitor.enable()
         self._live_monitor.add_listener(self)
@@ -486,6 +491,10 @@ class RecordTask(LiveEventListener):
             return
         self._recorder_enabled = True
 
+        # 如果弹幕客户端处于匿名模式，恢复用户真实 Cookie
+        if self._danmaku_client.anonymous_mode:
+            self._danmaku_client.headers = self._real_headers
+
         await self._postprocessor.start()
         await self._recorder.start()
 
@@ -501,6 +510,11 @@ class RecordTask(LiveEventListener):
         else:
             await self._recorder.stop()
             await self._postprocessor.stop()
+
+        # 关闭录制但监听仍然开启时，切回匿名模式
+        if self._monitor_enabled and not self._danmaku_client.anonymous_mode:
+            await self._danmaku_client._set_anonymous_cookie()
+            await self._danmaku_client.reconnect()
 
     async def update_info(self, raise_exception: bool = False) -> bool:
         return await self._live.update_info(raise_exception=raise_exception)
@@ -532,7 +546,6 @@ class RecordTask(LiveEventListener):
     async def on_live_stream_available(self, live):
         if self._recorder_enabled or self._recorder.danmaku_only:
             return
-        live.cookie = self._danmaku_client.headers.get('Cookie', '')
         try:
             _record, area, (w, h) = await live._should_auto_record()
         except asyncio.CancelledError:

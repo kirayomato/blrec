@@ -305,7 +305,7 @@ class RecordTaskManager:
         if task.cookie != settings.cookie:
             task.cookie = settings.cookie
             changed = True
-        if changed and restart_danmaku_client:
+        if changed and restart_danmaku_client and task._recorder_enabled:
             await task.restart_danmaku_client()
 
     def apply_task_output_settings(

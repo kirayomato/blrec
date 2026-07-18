@@ -97,6 +97,14 @@ class DanmakuClient(EventEmitter[DanmakuListener], AsyncStoppableMixin):
         self._logger.debug(f'protover: {self._protover}')
 
     @property
+    def connected(self) -> bool:
+        return self._connected
+
+    @property
+    def anonymous_mode(self) -> bool:
+        return self._anonymous_mode
+
+    @property
     def headers(self) -> Dict[str, str]:
         return self._headers
 
@@ -111,6 +119,7 @@ class DanmakuClient(EventEmitter[DanmakuListener], AsyncStoppableMixin):
         # 同步更新API对象的headers
         self.webapi.headers = self._headers
         self.appapi.headers = self._headers
+        self._logger.debug(f'use cookie:{str(self.headers['Cookie'])[:100]}...')
 
     async def _set_anonymous_cookie(self) -> None:
         """设置匿名模式Cookie并触发完整的headers更新"""
@@ -119,10 +128,8 @@ class DanmakuClient(EventEmitter[DanmakuListener], AsyncStoppableMixin):
         self._buvid = generate_buvid3()
         new_headers = {**self.headers, 'Cookie': f"buvid3={self._buvid}"}
         self.headers = new_headers
-        await self._update_danmu_info()
 
     async def _do_start(self) -> None:
-        await self._update_danmu_info()
         await self._connect()
         await self._create_message_loop()
         self._logger.debug('Started danmaku client')
@@ -175,6 +182,7 @@ class DanmakuClient(EventEmitter[DanmakuListener], AsyncStoppableMixin):
         ),
     )
     async def _connect(self) -> None:
+        await self._update_danmu_info()
         self._logger.debug('Connecting to server...')
         try:
             await self._connect_websocket()
@@ -226,7 +234,9 @@ class DanmakuClient(EventEmitter[DanmakuListener], AsyncStoppableMixin):
             self._logger.warning(f'host_list is empty, attempt {attempt + 1}/{max_update_attempts} to update')
             await self._update_danmu_info()
         else:
-            raise ConnectionError('Failed to get valid host_list after multiple attempts')
+            raise ConnectionError(
+                'Failed to get valid host_list after multiple attempts'
+            )
 
         # 确保 _host_index 在有效范围内
         if self._host_index >= len(host_list):
