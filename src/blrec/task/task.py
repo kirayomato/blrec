@@ -5,6 +5,7 @@ from pathlib import PurePath
 from typing import Dict, Iterator, List, Optional
 
 from blrec.bili.danmaku_client import DanmakuClient
+from blrec.bili.api import BASE_HEADERS
 from blrec.bili.live import Live
 from blrec.bili.live_monitor import LiveMonitor
 from blrec.bili.models import RoomInfo, UserInfo
@@ -71,7 +72,15 @@ class RecordTask(LiveEventListener):
         self._logger_context = {'room_id': self._live.room_id}
         self._logger = logger.bind(**self._logger_context)
         self._auto_record_radio = auto_record_radio
-        self._real_headers: Dict[str, str] = self._live.headers
+        self._real_headers: Dict[str, str] = self._build_real_headers()
+
+    def _build_real_headers(self) -> Dict[str, str]:
+        return {
+            **BASE_HEADERS,
+            'Referer': f'https://live.bilibili.com/{self._room_id}',
+            'User-Agent': self._user_agent,
+            'Cookie': self._cookie,
+        }
 
     @property
     def ready(self) -> bool:
@@ -232,10 +241,11 @@ class RecordTask(LiveEventListener):
 
     @user_agent.setter
     def user_agent(self, value: str) -> None:
+        self._user_agent = value
         self._live.user_agent = value
-        self._real_headers = self._live.headers
+        self._real_headers = self._build_real_headers()
         if hasattr(self, '_danmaku_client'):
-            self._danmaku_client.headers = self._live.headers
+            self._danmaku_client._headers['User-Agent'] = value
 
     @property
     def cookie(self) -> str:
@@ -243,10 +253,11 @@ class RecordTask(LiveEventListener):
 
     @cookie.setter
     def cookie(self, value: str) -> None:
+        self._cookie = value
+        self._real_headers = self._build_real_headers()
         self._live.cookie = value
-        self._real_headers = self._live.headers
         if hasattr(self, '_danmaku_client') and self._recorder_enabled:
-            self._danmaku_client.headers = self._live.headers
+            self._danmaku_client.headers = self._real_headers
 
     @property
     def danmu_uname(self) -> bool:

@@ -67,7 +67,7 @@ class Live:
         self._room_id = room_id
         self._user_agent = user_agent
         self._cookie = cookie
-        self._update_headers()
+        headers = self._build_headers()
         self._html_page_url = f'https://live.bilibili.com/{room_id}'
 
         self._session = aiohttp.ClientSession(
@@ -79,9 +79,9 @@ class Live:
         )
         self._requests_session = requests.Session()
         self._requests_session.trust_env = False
-        self._requests_session.headers.update(self._headers)
-        self._appapi = AppApi(self._session, self.headers, room_id=room_id)
-        self._webapi = WebApi(self._session, self.headers, room_id=room_id)
+        self._requests_session.headers.update(headers)
+        self._appapi = AppApi(self._session, headers, room_id=room_id)
+        self._webapi = WebApi(self._session, headers, room_id=room_id)
 
         self._room_info: RoomInfo
         self._user_info: UserInfo
@@ -121,10 +121,10 @@ class Live:
     @user_agent.setter
     def user_agent(self, value: str) -> None:
         self._user_agent = value
-        self._update_headers()
-        self._webapi.headers = self.headers
-        self._appapi.headers = self.headers
-        self._requests_session.headers.update(self._headers)
+        headers = self._build_headers()
+        self._webapi.headers = headers
+        self._appapi.headers = headers
+        self._requests_session.headers.update(headers)
 
     @property
     def cookie(self) -> str:
@@ -133,17 +133,17 @@ class Live:
     @cookie.setter
     def cookie(self, value: str) -> None:
         self._cookie = value
-        self._update_headers()
-        self._webapi.headers = self.headers
-        self._appapi.headers = self.headers
-        self._requests_session.headers.update(self._headers)
+        headers = self._build_headers()
+        self._webapi.headers = headers
+        self._appapi.headers = headers
+        self._requests_session.headers.update(headers)
 
     @property
     def headers(self) -> Dict[str, str]:
-        return self._headers
+        return self._webapi.headers
 
-    def _update_headers(self) -> None:
-        self._headers = {
+    def _build_headers(self) -> Dict[str, str]:
+        return {
             **BASE_HEADERS,
             'Referer': f'https://live.bilibili.com/{self._room_id}',
             'User-Agent': self._user_agent,
