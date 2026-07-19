@@ -425,14 +425,16 @@ class Live:
     async def get_live_resolution(self, stream: str) -> Tuple[int, int]:
         downloaded = False
         is_url = stream.startswith("http")
-        if is_url and stream.endswith(".m3u8"):
-            # For HLS URLs, pass directly to ffprobe so it can fetch segments
-            pass
-        elif is_url:
-            stream = await self._download_video(stream)
-            if not stream:
-                return (0, 0)
-            downloaded = True
+        if is_url:
+            parsed = urlparse(stream)
+            if ".m3u8" in parsed.path:
+                # For HLS URLs, pass directly to ffprobe so it can fetch segments
+                pass
+            else:
+                stream = await self._download_video(stream)
+                if not stream:
+                    return (0, 0)
+                downloaded = True
         cmd = [
             "ffprobe",
             "-v",
@@ -473,9 +475,17 @@ class Live:
                 return (0, 0)
 
             # 解析 "1920x1080" 格式
-            width_str, height_str = result.split('x')
-            width = int(width_str)
-            height = int(height_str)
+            first_line = result.split('\n')[0]
+            parts = first_line.split('x')
+            if len(parts) < 2:
+                error_msg = stderr.decode('utf-8', errors='ignore').strip()
+                self._logger.debug(
+                    f'Failed to get live stream resolution, '
+                    f'unexpected output format: {result}'
+                )
+                return (0, 0)
+            width = int(parts[0])
+            height = int(parts[1])
             self._logger.info(f'Live stream ({stream}) resolution: {width}x{height}')
             return (width, height)
 
