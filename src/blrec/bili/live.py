@@ -552,7 +552,7 @@ class Live:
                 response = self._requests_session.get(
                     url,
                     stream=True,
-                    headers=self._headers,
+                    headers=self.headers,
                     timeout=timeout,
                 )
                 response.raise_for_status()
