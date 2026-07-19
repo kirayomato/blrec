@@ -424,7 +424,11 @@ class Live:
 
     async def get_live_resolution(self, stream: str) -> Tuple[int, int]:
         downloaded = False
-        if stream.startswith("http"):
+        is_url = stream.startswith("http")
+        if is_url and stream.endswith(".m3u8"):
+            # For HLS URLs, pass directly to ffprobe so it can fetch segments
+            pass
+        elif is_url:
             stream = await self._download_video(stream)
             if not stream:
                 return (0, 0)
@@ -433,6 +437,8 @@ class Live:
             "ffprobe",
             "-v",
             "error",
+            "-protocol_whitelist",
+            "file,http,https,tcp,tls,crypto",
             "-select_streams",
             "v:0",
             "-show_entries",
