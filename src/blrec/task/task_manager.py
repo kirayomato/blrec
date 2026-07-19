@@ -127,8 +127,8 @@ class RecordTaskManager:
     async def remove_task(self, room_id: int) -> None:
         logger.debug(f'Removing task {room_id}...')
         task = self._get_task(room_id, check_ready=True)
-        await task.disable_recorder(force=True)
         await task.disable_monitor()
+        await task.disable_recorder(force=True)
         await task.destroy()
         del self._tasks[room_id]
         malloc_trim(0)
@@ -154,8 +154,8 @@ class RecordTaskManager:
     async def stop_task(self, room_id: int, force: bool = False) -> None:
         logger.debug(f'Stopping task {room_id}...')
         task = self._get_task(room_id, check_ready=True)
-        await task.disable_recorder(force)
         await task.disable_monitor()
+        await task.disable_recorder(force)
         logger.debug(f'Stopped task {room_id}')
 
     async def start_all_tasks(self) -> None:
