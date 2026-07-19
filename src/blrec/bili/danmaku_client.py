@@ -191,10 +191,6 @@ class DanmakuClient(EventEmitter[DanmakuListener], AsyncStoppableMixin):
             await self._handle_auth_reply(reply)
         except Exception as exc:
             self._logger.warning(f'Failed to connect to server: {repr(exc)}')
-            if self._anonymous_mode:
-                await self._set_anonymous_cookie()
-                self._logger.warning('Reset anonymous cookie due to connection failure')
-
             if (
                 hasattr(exc, 'args')
                 and len(exc.args) > 0
@@ -202,11 +198,16 @@ class DanmakuClient(EventEmitter[DanmakuListener], AsyncStoppableMixin):
             ):
                 ws_msg_type = exc.args[0].type
                 if ws_msg_type == aiohttp.WSMsgType.CLOSED:
-                    submit_exception(
-                        CookieExpiredException(f"Cookie Expired: {repr(exc)}")
-                    )
+                    if not self._anonymous_mode:
+                        submit_exception(
+                            CookieExpiredException(f"Cookie Expired: {repr(exc)}")
+                        )
+                        self._logger.warning('Switched to anonymous mode')
+                    else:
+                        self._logger.warning(
+                            'Reset anonymous cookie due to connection failure'
+                        )
                     await self._set_anonymous_cookie()
-                    self._logger.warning('Switched to anonymous mode')
 
             self._host_index += 1
             host_list = self._danmu_info.get('host_list', [])
@@ -231,7 +232,9 @@ class DanmakuClient(EventEmitter[DanmakuListener], AsyncStoppableMixin):
             host_list = self._danmu_info.get('host_list', [])
             if host_list:
                 break
-            self._logger.warning(f'host_list is empty, attempt {attempt + 1}/{max_update_attempts} to update')
+            self._logger.warning(
+                f'host_list is empty, attempt {attempt + 1}/{max_update_attempts} to update'
+            )
             await self._update_danmu_info()
         else:
             raise ConnectionError(
@@ -243,8 +246,7 @@ class DanmakuClient(EventEmitter[DanmakuListener], AsyncStoppableMixin):
             self._host_index = 0
 
         url = 'wss://{}:{}/sub'.format(
-            host_list[self._host_index]['host'],
-            host_list[self._host_index]['wss_port'],
+            host_list[self._host_index]['host'], host_list[self._host_index]['wss_port']
         )
         self._logger.debug(f'Connecting WebSocket... {url}')
         try:
