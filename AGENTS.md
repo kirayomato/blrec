@@ -79,6 +79,22 @@ npm test         # 单元测试
 - `src/blrec/task/` - 任务管理
 - `src/blrec/setting/` - 配置管理
 
+### 组件关系
+
+```
+RecordTaskManager
+  └── RecordTask (per room_id)
+        ├── Live                    # 直播间信息、API 调用
+        │     ├── webapi (WebApi)   # ─┐ 共享引用
+        │     └── appapi (AppApi)   # ─┤
+        ├── DanmakuClient           # 弹幕 WebSocket 客户端
+        │     ├── webapi (WebApi)   # ─┤ 同一对象
+        │     └── appapi (AppApi)   # ─┘
+        ├── LiveMonitor             # 通过 DanmakuClient 监听直播状态
+        ├── Recorder                # 录制核心，驱动 StreamRecorder/DanmakuDumper 等
+        └── Postprocessor           # 后处理（转码/注入元数据）
+```
+
 ### Frontend Structure
 - `webapp/src/app/` - Angular 组件和服务
 - 构建产物复制到 `src/blrec/data/webapp/` 供后端打包
@@ -90,11 +106,6 @@ npm test         # 单元测试
 3. **Settings file**: 首次运行自动创建，可通过 `-c` 指定路径
 4. **Docker volumes**: `/cfg` (settings), `/log` (logs), `/rec` (recordings)
 5. **Port**: 默认 2233，可通过 `--port` 修改
-
-## Testing
-
-- 无自动化测试套件
-- 前端有 Karma 单元测试框架（`npm test`）
 
 ## Build & Release
 
