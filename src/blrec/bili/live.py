@@ -489,9 +489,9 @@ class Live:
         _format = ['flv', 'ts', 'fmp4']
         _codec = ['avc', 'hevc']
 
-        for qn in _qn:
-            for fmt in _format:
-                for codec in _codec:
+        for fmt in _format:
+            for codec in _codec:
+                for qn in _qn:
                     try:
                         urls = await self.get_live_stream_url(
                             qn, stream_format=fmt, stream_codec=codec
@@ -533,7 +533,7 @@ class Live:
     async def _download_video(
         self,
         url: str,
-        max_bytes: int = 2621440, # 2.5MB
+        max_bytes: int = 2621440,  # 2.5MB
         chunk_size: int = 8192,
         timeout: int = 10,
     ) -> str:
@@ -550,10 +550,7 @@ class Live:
             def _fetch():
                 nonlocal downloaded
                 response = self._requests_session.get(
-                    url,
-                    stream=True,
-                    headers=self.headers,
-                    timeout=timeout,
+                    url, stream=True, headers=self.headers, timeout=timeout
                 )
                 response.raise_for_status()
                 with open(output_file, 'ab') as f:
