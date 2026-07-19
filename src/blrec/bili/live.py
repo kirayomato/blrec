@@ -497,12 +497,14 @@ class Live:
                             qn, stream_format=fmt, stream_codec=codec
                         )
                     except (NoStreamFormatAvailable, NoStreamCodecAvailable):
+                        await asyncio.sleep(random.uniform(0, 1))
                         continue
                     except Exception as e:
                         self._logger.warning(
                             f'Failed to get live stream url '
                             f'(qn={qn}, format={fmt}, codec={codec}): {repr(e)}'
                         )
+                        await asyncio.sleep(random.uniform(5, 10))
                         continue
 
                     for url in urls:
