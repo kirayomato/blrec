@@ -119,7 +119,7 @@ class DanmakuClient(EventEmitter[DanmakuListener], AsyncStoppableMixin):
         # 同步更新API对象的headers
         self.webapi.headers = self._headers
         self.appapi.headers = self._headers
-        self._logger.debug(f'use cookie:{str(self.headers["Cookie"])[:100]}...')
+        self._logger.debug(f'Using Cookie: {str(self.headers["Cookie"])[:50]}...')
 
     async def _set_anonymous_cookie(self) -> None:
         """设置匿名模式Cookie并触发完整的headers更新"""
@@ -273,7 +273,7 @@ class DanmakuClient(EventEmitter[DanmakuListener], AsyncStoppableMixin):
         )
         data = Frame.encode(WS.OP_USER_AUTHENTICATION, auth_msg)
         self._logger.debug(
-            f'Sending user authentication... uid={self._uid} roomid={self._room_id} buvid={self._buvid}'
+            f'Sending user authentication: uid={self._uid} roomid={self._room_id} buvid={self._buvid[:15]}...'
         )
         try:
             await self._ws.send_bytes(data)
