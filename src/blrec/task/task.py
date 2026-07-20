@@ -505,6 +505,8 @@ class RecordTask(LiveEventListener):
         # 如果弹幕客户端处于匿名模式，恢复用户真实 Cookie
         if self._danmaku_client.anonymous_mode:
             self._danmaku_client.headers = self._real_headers
+            if not self._live.is_living():
+                await self._danmaku_client.reconnect()
 
         await self._postprocessor.start()
         await self._recorder.start()
