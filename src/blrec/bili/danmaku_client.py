@@ -147,6 +147,8 @@ class DanmakuClient(EventEmitter[DanmakuListener], AsyncStoppableMixin):
         self._logger.debug('Restarted danmaku client')
 
     async def check_cookieV2(self):
+        if self._anonymous_mode:
+            return False
         return await self.webapi.test_cookie()
 
     async def check_cookie(self):
@@ -198,16 +200,19 @@ class DanmakuClient(EventEmitter[DanmakuListener], AsyncStoppableMixin):
             ):
                 ws_msg_type = exc.args[0].type
                 if ws_msg_type == aiohttp.WSMsgType.CLOSED:
-                    if not self._anonymous_mode:
+                    if self._anonymous_mode:
+                        self._logger.warning(
+                            'Reset anonymous cookie due to connection failure'
+                        )
+                        await self._set_anonymous_cookie()
+                    elif not await self.check_cookieV2():
                         submit_exception(
                             CookieExpiredException(f"Cookie Expired: {repr(exc)}")
                         )
                         self._logger.warning('Switched to anonymous mode')
+                        await self._set_anonymous_cookie()
                     else:
-                        self._logger.warning(
-                            'Reset anonymous cookie due to connection failure'
-                        )
-                    await self._set_anonymous_cookie()
+                        await asyncio.sleep(5)
 
             self._host_index += 1
             host_list = self._danmu_info.get('host_list', [])
