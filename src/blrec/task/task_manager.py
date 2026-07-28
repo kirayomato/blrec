@@ -109,10 +109,10 @@ class RecordTaskManager:
                 settings.room_id, settings.postprocessing
             )
 
-            if settings.enable_monitor:
-                await task.enable_monitor()
             if settings.enable_recorder or bool(os.environ['BLREC_DANMAKU_ONLY']):
                 await task.enable_recorder()
+            if settings.enable_monitor:
+                await task.enable_monitor()
             if task._live.is_living():
                 asyncio.create_task(task.on_live_stream_available(task._live))
 
