@@ -413,12 +413,17 @@ class DanmakuClient(EventEmitter[DanmakuListener], AsyncStoppableMixin):
         self._reset_retry()
 
         while True:
+            if self.stopped or not self._connected:
+                raise asyncio.CancelledError
             try:
                 wsmsg = await self._ws.receive(timeout=self._HEARTBEAT_INTERVAL * 2)
             except asyncio.CancelledError:
                 raise
             except Exception as e:
                 await self._handle_receive_error(e)
+                if self.stopped or not self._connected:
+                    # 连接已停止或断开，退出循环避免在坏 socket 上无限自旋刷屏
+                    raise asyncio.CancelledError
             else:
                 if wsmsg.type == aiohttp.WSMsgType.BINARY:
                     if result := await self._handle_data(wsmsg.data):
@@ -453,6 +458,9 @@ class DanmakuClient(EventEmitter[DanmakuListener], AsyncStoppableMixin):
         return None
 
     async def _handle_receive_error(self, exc: Exception) -> None:
+        # 停止过程中（stop/restart 并发）socket 已损坏，不再重连也不再刷屏
+        if self.stopped:
+            raise asyncio.CancelledError
         self._logger.warning(f'Failed to receive message: {repr(exc)}')
         await self._emit('error_occurred', exc)
         if isinstance(exc, asyncio.TimeoutError):
