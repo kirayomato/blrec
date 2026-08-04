@@ -212,7 +212,7 @@ class DanmakuClient(EventEmitter[DanmakuListener], AsyncStoppableMixin):
                         self._logger.warning('Switched to anonymous mode')
                         await self._set_anonymous_cookie()
                     else:
-                        await asyncio.sleep(5)
+                        await asyncio.sleep(10)
 
             self._host_index += 1
             host_list = self._danmu_info.get('host_list', [])
@@ -337,12 +337,13 @@ class DanmakuClient(EventEmitter[DanmakuListener], AsyncStoppableMixin):
             self._danmu_info = COMMON_DANMU_INFO
             if isinstance(exc, ApiRequestError):
                 if exc.code == -352:
-                    self.webapi._update_wbi_key()
                     submit_exception(
                         CookieExpiredException(
                             f"触发风控：{repr(exc)}({exc.code}): {repr(exc)}"
                         )
                     )
+                    await asyncio.sleep(300)
+                    await self.webapi._update_wbi_key()
         else:
             self._logger.debug('Danmu info updated')
 
