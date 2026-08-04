@@ -109,6 +109,7 @@ class DanmakuClient(EventEmitter[DanmakuListener], AsyncStoppableMixin):
         self._uid = 0
         self._buvid = ''
         self._room_id = room_id
+        self._danmu_info_initialized = False
         self.headers = headers or {}
 
         self._api_platform: ApiPlatform = 'web'
@@ -148,6 +149,9 @@ class DanmakuClient(EventEmitter[DanmakuListener], AsyncStoppableMixin):
 
     @headers.setter
     def headers(self, value: Dict[str, str]) -> None:
+        old_cookie = (
+            self._headers.get('Cookie', '') if hasattr(self, '_headers') else ''
+        )
         self._headers = {**value, 'Connection': 'Upgrade'}
         cookie = self._headers.get('Cookie', '')
         self._uid = extract_uid_from_cookie(cookie) or 0
@@ -158,6 +162,11 @@ class DanmakuClient(EventEmitter[DanmakuListener], AsyncStoppableMixin):
         self.webapi.headers = self._headers
         self.appapi.headers = self._headers
         self._logger.debug(f'Using Cookie: {str(self.headers["Cookie"])[:50]}...')
+        # Cookie 变更：将弹幕信息标记为过期。
+        # 下一次 _connect（含 task_manager 切换 cookie 后触发的重启/重连）会
+        # 在连接建立前按新 cookie 同步刷新 danmu_info，避免使用旧 token/host 连上。
+        if self._danmu_info_initialized and cookie and cookie != old_cookie:
+            self._danmu_info_initialized = False
 
     async def _set_anonymous_cookie(self) -> None:
         """设置匿名模式Cookie并触发完整的headers更新"""
@@ -224,7 +233,11 @@ class DanmakuClient(EventEmitter[DanmakuListener], AsyncStoppableMixin):
     async def _connect(self) -> None:
         limiter = _DanmakuConnectLimiter.get()
         await limiter.acquire()
-        await self._update_danmu_info()
+        # 仅在初始化（首次连接）时更新弹幕信息，重连时不再每次刷新，
+        # cookie 变化与连接失败路径各自负责触发更新
+        if not self._danmu_info_initialized:
+            await self._update_danmu_info()
+            self._danmu_info_initialized = True
         self._logger.debug('Connecting to server...')
         try:
             await self._connect_websocket()
