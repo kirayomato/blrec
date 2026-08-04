@@ -50,7 +50,7 @@ class DanmakuListener(EventListener):
     async def on_error_occurred(self, error: Exception) -> None: ...
 
 
-class __DanmakuConnectLimiter:
+class _DanmakuConnectLimiter:
     """
     全局弹幕重连限流器。
 
@@ -59,14 +59,14 @@ class __DanmakuConnectLimiter:
     避免多个房间同时重连触发 B 站风控/限流。
     """
 
-    _instance: Optional['__DanmakuConnectLimiter'] = None
+    _instance: Optional['_DanmakuConnectLimiter'] = None
     _lock: Optional[asyncio.Lock] = None
     _interval = float(os.environ.get('BLREC_DANMAKU_CONNECT_INTERVAL', '1.0'))
 
     _last_connect_at: float = 0.0
 
     @classmethod
-    def get(cls) -> '__DanmakuConnectLimiter':
+    def get(cls) -> '_DanmakuConnectLimiter':
         if cls._instance is None:
             cls._instance = cls()
         return cls._instance
@@ -222,7 +222,7 @@ class DanmakuClient(EventEmitter[DanmakuListener], AsyncStoppableMixin):
         ),
     )
     async def _connect(self) -> None:
-        limiter = __DanmakuConnectLimiter.get()
+        limiter = _DanmakuConnectLimiter.get()
         await limiter.acquire()
         await self._update_danmu_info()
         self._logger.debug('Connecting to server...')
