@@ -29,7 +29,13 @@ from ..path import (
 )
 from ..utils.mixins import AsyncCooperationMixin, AsyncStoppableMixin, SupportDebugMixin
 from .ffmpeg_metadata import make_metadata_file
-from .helpers import discard_file, files_related, get_extra_metadata
+from .helpers import (
+    discard_file,
+    files_related,
+    get_extra_metadata,
+    get_video_duration,
+    move_to_discard,
+)
 from .models import DeleteStrategy, PostprocessorStatus
 from .remux import RemuxingProgress, RemuxingResult, remux_video
 from ._typing import Progress
@@ -42,6 +48,9 @@ __all__ = (
 )
 
 DISPLAY_PROGRESS = bool(os.environ.get('BLREC_PROGRESS'))
+
+DISCARD_SIZE_THRESHOLD: Final = 1 * 1024**2  # 1 MiB
+DISCARD_DURATION_THRESHOLD: Final = 10.0  # seconds
 
 
 class PostprocessorEventListener(EventListener):
@@ -203,6 +212,7 @@ class Postprocessor(
             finally:
                 file_name = os.path.splitext(result_path)[0]
                 path0 = "Unknown"
+                final_path = result_path
                 if ts0:
                     try:
                         pp = PathProvider(
@@ -230,6 +240,7 @@ class Postprocessor(
                                 self._logger.info(
                                     f"Rename {file_name + '.flv.meta'} to {os.path.splitext(path0)[0] + '.flv.meta'}"
                                 )
+                            final_path = path0
                         else:
                             self._logger.info(f'Skip Rename for {result_path}')
                     except Exception as e:
@@ -245,6 +256,8 @@ class Postprocessor(
                     self._logger.error(
                         f"Failed to Rename for {result_path}, can't get file timestamp"
                     )
+
+                await self._discard_small_video(final_path)
                 self._queue.task_done()
 
     async def _process_flv(self, video_path: str, metadata_path: str) -> str:
@@ -420,6 +433,38 @@ class Postprocessor(
             return False
 
         return False
+
+    async def _discard_small_video(self, video_path: str) -> None:
+        if not os.path.isfile(video_path):
+            return
+
+        try:
+            size = os.path.getsize(video_path)
+        except OSError as e:
+            self._logger.warning(f'Failed to get size of {video_path}: {repr(e)}')
+            return
+
+        duration = await get_video_duration(video_path)
+
+        too_small = size < DISCARD_SIZE_THRESHOLD
+        too_short = duration is not None and duration < DISCARD_DURATION_THRESHOLD
+
+        if not (too_small or too_short):
+            return
+
+        self._logger.info(
+            f'Discarding small video file: {video_path}, '
+            f'size: {size / 1024**2:.2f}MB, duration: {duration}s'
+        )
+
+        file_name = os.path.splitext(video_path)[0]
+        meta_paths = [
+            ffmpeg_metadata_path(video_path),
+            extra_metadata_path(video_path),
+            record_metadata_path(video_path),
+            file_name + '.flv.meta',
+        ]
+        await move_to_discard([video_path, *meta_paths])
 
     async def _wait_for_metadata_file(self, video_path: str) -> None:
         _, ext = os.path.splitext(video_path)

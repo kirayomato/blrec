@@ -2,7 +2,8 @@ import asyncio
 import json
 import os
 import shutil
-from typing import Any, Dict, Iterable, Literal
+from subprocess import PIPE, Popen
+from typing import Any, Dict, Iterable, Literal, Optional
 
 import aiofiles
 from loguru import logger
@@ -40,6 +41,60 @@ async def discard_dir(path: str, log_level: Literal['INFO', 'DEBUG'] = 'INFO') -
         logger.error(f'Failed to delete {path!r}, due to: {repr(e)}')
     else:
         logger.log(log_level, f'Deleted {path!r}')
+
+
+async def move_file_to_discard(
+    path: str, log_level: Literal['INFO', 'DEBUG'] = 'INFO'
+) -> None:
+    if not os.path.isfile(path):
+        return
+
+    discard_dir_path = os.path.join(os.path.dirname(path) or '.', 'discard')
+    dest = os.path.join(discard_dir_path, os.path.basename(path))
+    loop = asyncio.get_running_loop()
+    try:
+        await loop.run_in_executor(None, os.makedirs, discard_dir_path, True)
+        await loop.run_in_executor(None, shutil.move, path, dest)
+    except Exception as e:
+        logger.error(f'Failed to move {path!r} to discard dir, due to: {repr(e)}')
+    else:
+        logger.log(log_level, f'Moved {path!r} to {dest!r}')
+
+
+async def move_to_discard(
+    paths: Iterable[str], log_level: Literal['INFO', 'DEBUG'] = 'INFO'
+) -> None:
+    for path in paths:
+        await move_file_to_discard(path, log_level)
+
+
+async def get_video_duration(path: str) -> Optional[float]:
+    """Get video duration in seconds via ffprobe, None if failed."""
+
+    loop = asyncio.get_running_loop()
+
+    def _probe() -> Optional[float]:
+        args = [
+            'ffprobe',
+            '-v',
+            'error',
+            '-show_entries',
+            'format=duration',
+            '-of',
+            'json',
+            path,
+        ]
+        with Popen(args, stdout=PIPE, stderr=PIPE) as process:
+            stdout, _stderr = process.communicate(timeout=10)
+        data = json.loads(stdout)
+        duration = data.get('format', {}).get('duration')
+        return float(duration) if duration is not None else None
+
+    try:
+        return await loop.run_in_executor(None, _probe)
+    except Exception as e:
+        logger.warning(f'Failed to get duration of {path!r}, due to: {repr(e)}')
+        return None
 
 
 def files_related(video_path: str) -> Iterable[str]:
