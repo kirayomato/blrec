@@ -49,8 +49,8 @@ __all__ = (
 
 DISPLAY_PROGRESS = bool(os.environ.get('BLREC_PROGRESS'))
 
-DISCARD_SIZE_THRESHOLD: Final = 1 * 1024**2  # 1 MiB
-DISCARD_DURATION_THRESHOLD: Final = 10.0  # seconds
+DISCARD_SIZE_THRESHOLD: Final = 5 * 1024**2  # 5 MiB
+DISCARD_DURATION_THRESHOLD: Final = 15.0  # seconds
 
 
 class PostprocessorEventListener(EventListener):
