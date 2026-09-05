@@ -184,9 +184,9 @@ class Postprocessor(
         async with self._worker_semaphore:
             self._logger.debug(f'Postprocessing... {video_path}')
             await self._wait_for_metadata_file(video_path)
+            result_path = video_path
             try:
                 _, ext = os.path.splitext(video_path)
-                result_path = video_path
                 metadata_path = await make_metadata_file(video_path)
 
                 free_disk = shutil.disk_usage(video_path).free / 1024**3
@@ -210,55 +210,89 @@ class Postprocessor(
             except Exception as exc:
                 submit_exception(exc)
             finally:
-                file_name = os.path.splitext(result_path)[0]
-                path0 = "Unknown"
-                final_path = result_path
-                if ts0:
-                    try:
-                        pp = PathProvider(
-                            self.recorder.live,
-                            self.recorder.out_dir,
-                            self.recorder.path_template,
-                        )
-                        path0, timestamp = pp(ts0)
-                        fmat = PurePath(result_path).suffix
-                        path0 = str(PurePath(path0).with_suffix(fmat))
-                        if result_path != path0:
-                            os.rename(result_path, path0)
-                            self._logger.info(f'Rename {result_path} to {path0}')
-                            os.rename(
-                                file_name + '.xml', os.path.splitext(path0)[0] + '.xml'
-                            )
-                            self._logger.info(
-                                f"Rename {file_name + '.xml'} to {os.path.splitext(path0)[0] + '.xml'}"
-                            )
-                            if os.path.exists(file_name + '.flv.meta'):
-                                os.rename(
-                                    file_name + '.flv.meta',
-                                    os.path.splitext(path0)[0] + '.flv.meta',
-                                )
-                                self._logger.info(
-                                    f"Rename {file_name + '.flv.meta'} to {os.path.splitext(path0)[0] + '.flv.meta'}"
-                                )
-                            final_path = path0
-                        else:
-                            self._logger.info(f'Skip Rename for {result_path}')
-                    except Exception as e:
-                        self._logger.error(
-                            f"Failed to Rename for {result_path} to {path0}: {repr(e)}"
-                        )
-                        with open(file_name + '.txt', 'w', encoding='utf-8') as f:
-                            if result_path != path0:
-                                f.write(f'Correct name:{path0}')
-                            else:
-                                f.write(f'Obtain name failed')
-                else:
-                    self._logger.error(
-                        f"Failed to Rename for {result_path}, can't get file timestamp"
-                    )
-
+                final_path = self._rename_to_standard_path(result_path, ts0)
                 await self._discard_small_video(final_path)
                 self._queue.task_done()
+
+    def _rename_to_standard_path(self, video_path: str, ts0: float) -> str:
+        """按录制起始时间戳把录像改名为标准路径，返回最终路径（失败时原样返回）。"""
+
+        if not ts0:
+            self._logger.error(
+                f"Failed to rename {video_path}, can't get file timestamp"
+            )
+            self._write_rename_note(video_path, None)
+            return video_path
+
+        target_path = self._standard_video_path(video_path, ts0)
+        if target_path is None:
+            self._write_rename_note(video_path, None)
+            return video_path
+
+        if target_path == video_path:
+            self._logger.info(f'Skip rename for {video_path}')
+            return video_path
+
+        try:
+            os.rename(video_path, target_path)
+        except Exception as e:
+            self._logger.error(
+                f'Failed to rename {video_path} to {target_path}: {repr(e)}'
+            )
+            self._write_rename_note(video_path, target_path)
+            return video_path
+
+        self._logger.info(f'Renamed {video_path} to {target_path}')
+        self._rename_sidecars(video_path, target_path)
+        return target_path
+
+    def _standard_video_path(self, video_path: str, ts0: float) -> Optional[str]:
+        """算出录像的标准路径，无法确定时返回 None。"""
+
+        try:
+            path_provider = PathProvider(
+                self.recorder.live,
+                self.recorder.out_dir,
+                self.recorder.path_template,
+            )
+            standard_path, _timestamp = path_provider(ts0)
+        except Exception as e:
+            self._logger.error(
+                f'Failed to get standard path for {video_path}: {repr(e)}'
+            )
+            return None
+
+        suffix = PurePath(video_path).suffix
+        return str(PurePath(standard_path).with_suffix(suffix))
+
+    def _rename_sidecars(self, video_path: str, target_path: str) -> None:
+        """录像改名后同步改名附属文件，单个失败不影响其余。"""
+
+        src_stem = os.path.splitext(video_path)[0]
+        dst_stem = os.path.splitext(target_path)[0]
+
+        for suffix in ('.xml', '.flv.meta'):
+            src = src_stem + suffix
+            if not os.path.isfile(src):
+                continue
+            dst = dst_stem + suffix
+            try:
+                os.rename(src, dst)
+            except Exception as e:
+                self._logger.error(f'Failed to rename {src} to {dst}: {repr(e)}')
+            else:
+                self._logger.info(f'Renamed {src} to {dst}')
+
+    def _write_rename_note(self, video_path: str, target_path: Optional[str]) -> None:
+        """改名失败时留一个 .txt 记录正确文件名，便于事后手工处理。"""
+
+        note_path = os.path.splitext(video_path)[0] + '.txt'
+        content = f'Correct name:{target_path}' if target_path else 'Obtain name failed'
+        try:
+            with open(note_path, 'w', encoding='utf-8') as file:
+                file.write(content)
+        except Exception as e:
+            self._logger.error(f'Failed to write rename note {note_path!r}: {repr(e)}')
 
     async def _process_flv(self, video_path: str, metadata_path: str) -> str:
         video_size = os.path.getsize(video_path)
