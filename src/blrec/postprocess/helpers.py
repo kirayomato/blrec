@@ -52,9 +52,18 @@ async def move_file_to_discard(
     discard_dir_path = os.path.join(os.path.dirname(path) or '.', 'discard')
     dest = os.path.join(discard_dir_path, os.path.basename(path))
     loop = asyncio.get_running_loop()
+
+    def _move() -> None:
+        # 注意：makedirs 的第二个位置参数是 mode，不是 exist_ok。
+        # 写成 makedirs(path, True) 会在目录已存在时抛 FileExistsError，
+        # 导致同一次搬移中后续文件（以及后续所有录像）全部搬移失败。
+        os.makedirs(discard_dir_path, exist_ok=True)
+        # 目标同名时 Windows 的 os.rename 会抛 FileExistsError，
+        # shutil.move 会自行退化为「复制 + 删除源文件」，此处不需要额外处理。
+        shutil.move(path, dest)
+
     try:
-        await loop.run_in_executor(None, os.makedirs, discard_dir_path, True)
-        await loop.run_in_executor(None, shutil.move, path, dest)
+        await loop.run_in_executor(None, _move)
     except Exception as e:
         logger.error(f'Failed to move {path!r} to discard dir, due to: {repr(e)}')
     else:
