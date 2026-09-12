@@ -158,3 +158,9 @@ _*/
 /.mimocode
 /.workbuddy
 /tmp
+*.flv
+*.mp4
+*.m4s
+*.m3u8
+*.ts
+
