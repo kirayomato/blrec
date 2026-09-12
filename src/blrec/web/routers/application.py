@@ -7,7 +7,6 @@ from fastapi import APIRouter, status
 from ..schemas import ResponseMessage
 from ...application import Application
 
-
 app: Application = None  # type: ignore  # bypass flake8 F821
 
 router = APIRouter(prefix='/api/v1/app', tags=['application'])
@@ -70,10 +69,12 @@ async def test_notify() -> None:
         description="这是一个测试直播间",
     )
     disk_usage = DiskUsage(
-        total=100000000000, used=50000000000, free=50000000000  # 100GB  # 50GB  # 50GB
+        total=100 * 1024**3,
+        used=50 * 1024**3,
+        free=50 * 1024**3,  # 100GB  # 50GB  # 50GB
     )
     path = "/test/path"
-    threshold = 10000000000  # 10GB
+    threshold = 100 * 1024**3  # 10GB
 
     event_center = EventCenter.get_instance()
     data = LiveBeganEventData(user_info, room_info)

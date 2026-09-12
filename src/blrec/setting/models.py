@@ -343,14 +343,16 @@ class LoggingSettings(BaseModel):
 
 
 class SpaceSettings(BaseModel):
-    check_interval: int = 60  # 1 minutes
-    space_threshold: Annotated[int, Field(ge=1024**3)] = 1024**3  # 1 GB
+    check_interval: Annotated[int, Field(ge=60)] = 600  # seconds
+    space_threshold: int = 1024**3  # 1 GB
     recycle_records: bool = False
 
-    @validator('check_interval')
-    def _validate_interval(cls, value: int) -> int:
-        allowed_values = frozenset((0, 10, 30, *(60 * i for i in (1, 3, 5, 10))))
-        cls._validate_with_collection(value, allowed_values)
+    @validator('space_threshold')
+    def _validate_space_threshold(cls, value: int) -> int:
+        if value <= 1024:
+            value *= 1024**3
+        elif value < 1024**3:
+            raise ValueError('The space threshold format should be GB or byte')
         return value
 
 
@@ -458,6 +460,7 @@ class GotifySettings(BaseModel):
         value = value.rstrip('/')
         try:
             from urllib.parse import urlparse
+
             result = urlparse(value)
             if not result.scheme or not result.netloc:
                 raise ValueError('gotify_url is invalid')

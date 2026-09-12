@@ -20,6 +20,9 @@ from tenacity import (
     wait_fixed,
 )
 
+from blrec.disk_space.models import DiskUsage
+from blrec.event.models import SpaceNoEnoughEventData
+
 from ..event import (
     Error,
     ErrorData,
@@ -238,7 +241,21 @@ class MessageNotifier(Notifier, ABC):
 
     def _make_space_message(self, event: SpaceNoEnoughEvent) -> Tuple[str, str]:
         env = os.environ.copy()
+
+        def _build_spcae_data_for_message(
+            event: SpaceNoEnoughEvent,
+        ) -> SpaceNoEnoughEvent:
+            k = 1000**3 / 1024**3
+            threshold = event.data.threshold * k
+            total = event.data.usage.total * k
+            used = event.data.usage.used * k
+            free = event.data.usage.free * k
+            disk_usage = DiskUsage(total, used, free)
+            data = SpaceNoEnoughEventData(event.data.path, threshold, disk_usage)
+            return SpaceNoEnoughEvent.from_data(data)
+
         try:
+            event = _build_spcae_data_for_message(event)
             template = self._liquid_env.from_string(self._get_space_message_title())
             title = template.render(event=attr.asdict(event), env=env)
             template = self._liquid_env.from_string(self._get_space_message_content())
