@@ -85,14 +85,12 @@ class DanmakuReader:  # TODO rewrite
             uname=elem.get('user'),
             dmid=int(params[7]),
             text=elem.text,
-            isEmoji=bool(int(elem.get('isEmoji')))
+            isEmoji=bool(int(elem.get('isEmoji'))),
         )
 
 
 class DanmakuWriter:
-    _XML_HEAD: Final[
-        str
-    ] = """\
+    _XML_HEAD: Final[str] = """\
 <?xml version="1.0" encoding="UTF-8"?>
 <i>
     <chatserver>chat.bilibili.com</chatserver>
@@ -172,8 +170,8 @@ class DanmakuWriter:
     def _serialize_danmu(self, dm: Danmu) -> str:
         attrib = {
             'p': (
-                f'{dm.stime:.3f},{dm.mode},{dm.size},{dm.color},'
-                f'{dm.date},{dm.pool},{dm.uid_hash},{dm.dmid}'
+                f'{dm.stime:.3f},{dm.mode},{dm.size},{dm.color},{dm.date}'
+                # f'{dm.pool},{dm.uid_hash},{dm.dmid}'
             ),
             'isEmoji': str(int(dm.isEmoji)),
             'uid': str(dm.uid),
