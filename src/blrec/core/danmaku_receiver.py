@@ -44,6 +44,11 @@ class DanmakuReceiver(DanmakuListener, StoppableMixin):
                 msg = DanmuMsg.from_danmu(danmu)
             elif cmd == DanmakuCommand.SEND_GIFT.value:
                 msg = GiftSendMsg.from_danmu(danmu)
+            elif cmd == DanmakuCommand.SEND_GIFT_V2.value:
+                # 一条 SEND_GIFT_V2 是批量广播，可能包含多个礼物
+                for gift_msg in GiftSendMsg.list_from_v2_danmu(danmu):
+                    self._put_message(gift_msg)
+                return
             elif cmd == DanmakuCommand.GUARD_BUY.value:
                 msg = GuardBuyMsg.from_danmu(danmu)
             elif cmd == DanmakuCommand.SUPER_CHAT_MESSAGE.value:
@@ -59,14 +64,17 @@ class DanmakuReceiver(DanmakuListener, StoppableMixin):
             else:
                 return
 
-            try:
-                self._queue.put_nowait(msg)
-            except QueueFull:
-                self._queue.get_nowait()  # discard the first item
-                self._queue.put_nowait(msg)
+            self._put_message(msg)
         except Exception as e:
             self._logger.debug(f'Illegal Danmu Found: {danmu}, {repr(e)}')
             return
+
+    def _put_message(self, msg: DanmakuMsg) -> None:
+        try:
+            self._queue.put_nowait(msg)
+        except QueueFull:
+            self._queue.get_nowait()  # discard the first item
+            self._queue.put_nowait(msg)
 
     def _clear_queue(self) -> None:
         self._queue = Queue(maxsize=self._MAX_QUEUE_SIZE)

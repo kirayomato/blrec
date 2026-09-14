@@ -1,8 +1,9 @@
 import time
-from typing import Literal
+from typing import List, Literal, cast
 
 import attr
 
+from blrec.bili.gift_v2 import SendGiftV2
 from blrec.bili.typing import Danmaku
 
 
@@ -88,6 +89,27 @@ class GiftSendMsg:
             uname=data['uname'],
             timestamp=int(data['timestamp']),
         )
+
+    @classmethod
+    def list_from_v2_danmu(cls, danmu: Danmaku) -> List['GiftSendMsg']:
+        """适配 SEND_GIFT_V2。
+
+        与旧的 SEND_GIFT 不同，SEND_GIFT_V2 是一条批量广播，
+        一次可能携带多个礼物，故按 gift_list 逐条展开。
+        """
+        proto = SendGiftV2.from_pb(danmu['data']['pb'])
+        return [
+            cls(
+                gift_name=gift.gift_name,
+                count=gift.num,
+                coin_type=cast(Literal['sliver', 'gold'], gift.coin_type),
+                price=gift.price,
+                uid=proto.uid,
+                uname=proto.uname,
+                timestamp=gift.timestamp,
+            )
+            for gift in proto.gift_list
+        ]
 
     @classmethod
     def from_notice(cls, danmu):
