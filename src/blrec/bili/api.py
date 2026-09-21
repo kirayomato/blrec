@@ -5,7 +5,7 @@ import random
 import time
 from abc import ABC
 from datetime import datetime, timezone
-from typing import Any, Dict, Final, List, Mapping, Optional
+from typing import Any, Dict, Final, List, Mapping, Optional, Tuple
 from urllib.parse import urlencode
 
 import aiohttp
@@ -46,6 +46,7 @@ class BaseApi(ABC):
         self.base_api_urls: List[str] = ['https://api.bilibili.com']
         self.base_live_api_urls: List[str] = ['https://api.live.bilibili.com']
         self.base_play_info_api_urls: List[str] = ['https://api.live.bilibili.com']
+        self.base_passport_api_urls: List[str] = ['https://passport.bilibili.com']
 
         self._session = session
         self.headers = headers or {}
@@ -336,6 +337,65 @@ class WebApi(BaseApi):
         path = '/x/web-interface/nav'
         json_res = await self._get_json(self.base_api_urls, path, check_response=False)
         return json_res
+
+    async def get_login_qrcode(self) -> Tuple[str, str]:
+        path = '/x/passport-login/web/qrcode/generate'
+        json_res = await self._get_json(
+            self.base_passport_api_urls, path, check_response=False
+        )
+        if json_res['code'] != 0:
+            raise ApiRequestError(json_res['code'], json_res['message'])
+        data = json_res['data']
+        return data['qrcode_key'], data['url']
+
+    async def poll_login_qrcode(
+        self, qrcode_key: str
+    ) -> Tuple[int, str, Optional[str]]:
+        """Poll a QR code login state.
+
+        The passport API reports two different status codes: the outer ``code``
+        is ``0`` for a successful request while the inner ``data.code`` carries
+        the actual scan state (``86101`` waiting, ``86090`` scanned, ``86038``
+        expired).  Only when the inner code is absent or ``0`` is the login
+        considered complete.
+
+        On success the credentials are delivered through the ``Set-Cookie``
+        headers of this very response, so they are collected from the session
+        cookie jar.  ``data.url`` is a crossDomain ticket link meant for the
+        browser to sign in to the game sub-sites, it holds no credential for
+        this application and must not be followed.
+        """
+        path = '/x/passport-login/web/qrcode/poll'
+        params = {'qrcode_key': qrcode_key}
+        json_res = await self._get_json(
+            self.base_passport_api_urls, path, params=params, check_response=False
+        )
+        code = json_res['code']
+        message = json_res.get('message', '')
+        data = json_res.get('data') or {}
+        if code != 0:
+            return code, '', message
+        state = data.get('code')
+        if state:
+            return state, '', message
+        cookie = self._collect_login_cookies()
+        if not cookie:
+            return -1, '', 'login succeeded but no credential was returned'
+        return 0, cookie, message
+
+    def _collect_login_cookies(self) -> str:
+        """Build the credential cookie string from the session cookie jar.
+
+        The login response sets these cookies itself, so no extra request is
+        needed to obtain them.
+        """
+        names = ('SESSDATA', 'bili_jct', 'DedeUserID', 'DedeUserID__ckMd5')
+        values: Dict[str, str] = {}
+        for cookie in self._session.cookie_jar:
+            if cookie.key in names:
+                values[cookie.key] = cookie.value
+        pairs = [f'{name}={values[name]}' for name in names if values.get(name)]
+        return '; '.join(pairs)
 
     async def test_cookie(self) -> bool:
         """

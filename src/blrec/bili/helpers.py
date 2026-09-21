@@ -1,4 +1,4 @@
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional, Tuple
 
 import aiohttp
 from jsonpath import jsonpath
@@ -9,7 +9,7 @@ from .exceptions import ApiRequestError
 from .net import get_connector, timeout
 from .typing import QualityNumber, ResponseData, StreamCodec, StreamFormat
 
-__all__ = 'room_init', 'ensure_room_id', 'get_nav'
+__all__ = 'room_init', 'ensure_room_id', 'get_nav', 'generate_qr_code', 'poll_qr_code'
 
 
 async def room_init(room_id: int) -> ResponseData:
@@ -52,6 +52,47 @@ async def get_nav(cookie: str) -> ResponseData:
         }
         api = WebApi(session, headers)
         return await api.get_nav()
+
+
+PASSPORT_HEADERS = {
+    'Origin': 'https://passport.bilibili.com',
+    'Referer': 'https://passport.bilibili.com/login',
+}
+
+
+async def generate_qr_code() -> Tuple[str, str]:
+    """Request a login QR code from the passport API.
+
+    Returns the ``(qrcode_key, url)`` pair; the url is the content to be
+    rendered as a QR code.
+    """
+    async with aiohttp.ClientSession(
+        connector=get_connector(),
+        connector_owner=False,
+        raise_for_status=True,
+        trust_env=False,
+        timeout=timeout,
+    ) as session:
+        api = WebApi(session, PASSPORT_HEADERS)
+        return await api.get_login_qrcode()
+
+
+async def poll_qr_code(qrcode_key: str) -> Tuple[int, str, Optional[str]]:
+    """Poll the login state of a QR code.
+
+    Returns ``(code, cookie, message)`` where ``code`` is the raw passport
+    status code (0 for login succeeded) and ``cookie`` is only non-empty once
+    the login has completed.
+    """
+    async with aiohttp.ClientSession(
+        connector=get_connector(),
+        connector_owner=False,
+        raise_for_status=True,
+        trust_env=False,
+        timeout=timeout,
+    ) as session:
+        api = WebApi(session, PASSPORT_HEADERS)
+        return await api.poll_login_qrcode(qrcode_key)
 
 
 def get_quality_name(qn: QualityNumber) -> str:
