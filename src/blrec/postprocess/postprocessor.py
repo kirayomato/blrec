@@ -16,6 +16,7 @@ import shutil
 from ..bili.live import Live
 from ..core import Recorder, RecorderEventListener
 from ..core.path_provider import PathProvider
+from ..disk_space import space_monitors
 from ..event.event_emitter import EventEmitter, EventListener
 from ..exception import exception_callback, submit_exception
 from ..flv.helpers import is_valid_flv_file
@@ -191,6 +192,10 @@ class Postprocessor(
 
                 free_disk = shutil.disk_usage(video_path).free / 1024**3
                 video_size = os.path.getsize(video_path) / 1024**3
+
+                if free_disk < video_size * 1.2:
+                    await self._free_space_for(video_path, video_size)
+                    free_disk = shutil.disk_usage(video_path).free / 1024**3
 
                 if free_disk < video_size * 1.2:
                     self._logger.warning(
@@ -499,6 +504,19 @@ class Postprocessor(
             file_name + '.flv.meta',
         ]
         await move_to_discard([video_path, *meta_paths])
+
+    async def _free_space_for(self, video_path: str, video_size: float) -> None:
+        """转码前空间不足时，按本次录像所需空间请求清理。"""
+
+        required = int(video_size * 1.2 * 1024**3)
+        self._logger.info(f'Freeing {required} bytes for {video_path} ...')
+
+        for space_monitor in space_monitors():
+            with suppress(Exception):
+                if await space_monitor.reclaim_space(video_path, required):
+                    return
+
+        self._logger.warning(f'Failed to free enough space for {video_path}')
 
     async def _wait_for_metadata_file(self, video_path: str) -> None:
         _, ext = os.path.splitext(video_path)

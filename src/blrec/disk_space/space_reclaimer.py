@@ -13,7 +13,11 @@ from ..utils.mixins import SwitchableMixin
 from .helpers import delete_file, is_space_enough
 from .space_monitor import DiskUsage, SpaceEventListener, SpaceMonitor
 
-__all__ = ('SpaceReclaimer',)
+__all__ = ('SpaceReclaimer', 'SpaceReclaimFailedError')
+
+
+class SpaceReclaimFailedError(RuntimeError):
+    """空间仍未达到要求。"""
 
 
 class SpaceReclaimer(SpaceEventListener, SwitchableMixin):
@@ -55,7 +59,9 @@ class SpaceReclaimer(SpaceEventListener, SwitchableMixin):
     async def on_space_no_enough(
         self, path: str, threshold: int, disk_usage: DiskUsage
     ) -> None:
-        await self._free_space(threshold)
+        if not await self._free_space(threshold):
+            message = f'Failed to free {threshold} bytes at {path!r}'
+            raise SpaceReclaimFailedError(message)
 
     def _do_enable(self) -> None:
         self._space_monitor.add_listener(self)
@@ -76,7 +82,11 @@ class SpaceReclaimer(SpaceEventListener, SwitchableMixin):
     async def _free_space_from_records(self, size: int) -> bool:
         logger.info('Free space from records ...')
         ttl = self.rec_ttl
+        min_ttl = self.rec_ttl / 1024
         while not is_space_enough(self.path, size):
+            if ttl < min_ttl:
+                logger.warning(f'Unable to free {size} bytes from records')
+                return False
             ts = datetime.now().timestamp() - ttl
             for path in await self._get_record_file_paths(ts):
                 await delete_file(path)
