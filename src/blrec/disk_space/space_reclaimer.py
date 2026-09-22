@@ -3,14 +3,15 @@ import glob
 import os
 from datetime import datetime
 from functools import partial
-from pathlib import Path
-from typing import Iterable, List
+from pathlib import Path, PurePath
+from typing import Iterable, List, Optional, Set
 
 from loguru import logger
 from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_none
 
+from ..path import extra_metadata_path, ffmpeg_metadata_path, playlist_path
 from ..utils.mixins import SwitchableMixin
-from .helpers import delete_file, is_space_enough
+from .helpers import delete_file, get_video_resolution_and_duration, is_space_enough
 from .space_monitor import DiskUsage, SpaceEventListener, SpaceMonitor
 
 __all__ = 'SpaceReclaimer', 'space_reclaimers'
@@ -22,6 +23,28 @@ def space_reclaimers() -> Iterable['SpaceReclaimer']:
     return tuple(_instances)
 
 
+def _video_of_sidecar(path: str) -> Optional[str]:
+    """附属文件对应的主录像，主录像还在时附属文件不该被单独删除。"""
+
+    for suffix in ('.flv.meta.json', '.flv.meta'):
+        if path.endswith(suffix):
+            return path[: -len(suffix)] + '.flv'
+    if path.endswith('.m3u8'):
+        return path[: -len('.m3u8')] + '.m4s'
+    return None
+
+
+def _sidecars_of_video(video_path: str) -> List[str]:
+    """主录像的附属文件，删录像时一起删。"""
+
+    suffix = PurePath(video_path).suffix
+    if suffix == '.flv':
+        return [ffmpeg_metadata_path(video_path), extra_metadata_path(video_path)]
+    if suffix == '.m4s':
+        return [playlist_path(video_path)]
+    return []
+
+
 class SpaceReclaimer(SpaceEventListener, SwitchableMixin):
     _SUFFIX_SET = frozenset(
         (
@@ -30,14 +53,16 @@ class SpaceReclaimer(SpaceEventListener, SwitchableMixin):
             '.ts',
             '.m4s',
             '.m3u8',
-            '.xml',
             '.json',
             '.meta',
-            '.jsonl',
             '.jpg',
             '.png',
         )
     )
+    _VIDEO_SUFFIX_SET = frozenset(('.flv', '.mp4', '.ts', '.m4s'))
+
+    # 竖屏且码率低于该值的录像体积不大，删掉腾不出多少空间，跳过不删
+    _VIDEO_BITRATE_THRESHOLD = 3000  # kbps
 
     def __init__(
         self,
@@ -83,18 +108,77 @@ class SpaceReclaimer(SpaceEventListener, SwitchableMixin):
     async def _free_space_from_records(self, size: int) -> bool:
         logger.info('Free space from records ...')
         ttl = self.rec_ttl
-        min_ttl = self.rec_ttl / 1024
+        # 冷静期最多压缩到 1 小时，避免删到太新的录像；
+        # rec_ttl 本身配得更短时以它为准，否则一轮都进不去、记录清理会彻底失效。
+        min_ttl = min(60 * 60, self.rec_ttl)
+        probed: Set[str] = set()
         while not is_space_enough(self.path, size):
             if ttl < min_ttl:
                 logger.warning(f'Unable to free {size} bytes from records')
                 return False
             ts = datetime.now().timestamp() - ttl
             for path in await self._get_record_file_paths(ts):
-                await delete_file(path)
+                if path in probed:
+                    continue
+                probed.add(path)
+                # 探测要跑 ffprobe，代价高，所以逐个按需进行，够空间就停
+                if await self._should_keep(path):
+                    continue
+                await self._delete_record(path)
                 if is_space_enough(self.path, size):
                     break
             ttl /= 2
         return True
+
+    async def _should_keep(self, path: str) -> bool:
+        """判断该文件是否保留不删。"""
+
+        video_path = _video_of_sidecar(path)
+        if video_path is not None and os.path.isfile(video_path):
+            return True
+
+        if PurePath(path).suffix not in self._VIDEO_SUFFIX_SET:
+            return False
+
+        return await self._is_low_quality_video(path)
+
+    async def _is_low_quality_video(self, path: str) -> bool:
+        """竖屏且码率偏低的录像保留不删。"""
+
+        info = await get_video_resolution_and_duration(path)
+        if info is None:
+            logger.warning(f'Failed to probe {path!r}, keep it instead')
+            return True
+
+        width, height, duration = info
+        if duration <= 0:
+            return True
+
+        try:
+            bitrate = os.path.getsize(path) * 8 / duration / 1000
+        except OSError as e:
+            logger.warning(f'Failed to get size of {path!r}: {repr(e)}')
+            return True
+
+        if height > width and bitrate < self._VIDEO_BITRATE_THRESHOLD:
+            logger.info(
+                f'Keep {path!r}, portrait {width}x{height}, {bitrate:.0f}kbps'
+            )
+            return True
+
+        return False
+
+    async def _delete_record(self, path: str) -> None:
+        """删除录像，其附属文件跟随一起删除。"""
+
+        # 附属文件可能已随主录像删掉，或已被同轮的其它条目处理过
+        if not os.path.isfile(path):
+            return
+
+        await delete_file(path)
+        for sidecar in _sidecars_of_video(path):
+            if os.path.isfile(sidecar):
+                await delete_file(sidecar, 'DEBUG')
 
     @retry(
         retry=retry_if_exception_type(OSError),
