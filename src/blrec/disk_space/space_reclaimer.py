@@ -13,11 +13,13 @@ from ..utils.mixins import SwitchableMixin
 from .helpers import delete_file, is_space_enough
 from .space_monitor import DiskUsage, SpaceEventListener, SpaceMonitor
 
-__all__ = ('SpaceReclaimer', 'SpaceReclaimFailedError')
+__all__ = 'SpaceReclaimer', 'space_reclaimers'
+
+_instances: List['SpaceReclaimer'] = []
 
 
-class SpaceReclaimFailedError(RuntimeError):
-    """空间仍未达到要求。"""
+def space_reclaimers() -> Iterable['SpaceReclaimer']:
+    return tuple(_instances)
 
 
 class SpaceReclaimer(SpaceEventListener, SwitchableMixin):
@@ -46,6 +48,7 @@ class SpaceReclaimer(SpaceEventListener, SwitchableMixin):
         recycle_records: bool = False,
     ) -> None:
         super().__init__()
+        _instances.append(self)
         self._space_monitor = space_monitor
         self.path = path
         if value := os.environ.get('BLREC_REC_TTL'):
@@ -59,9 +62,7 @@ class SpaceReclaimer(SpaceEventListener, SwitchableMixin):
     async def on_space_no_enough(
         self, path: str, threshold: int, disk_usage: DiskUsage
     ) -> None:
-        if not await self._free_space(threshold):
-            message = f'Failed to free {threshold} bytes at {path!r}'
-            raise SpaceReclaimFailedError(message)
+        await self.free_space(threshold)
 
     def _do_enable(self) -> None:
         self._space_monitor.add_listener(self)
@@ -71,7 +72,7 @@ class SpaceReclaimer(SpaceEventListener, SwitchableMixin):
         self._space_monitor.remove_listener(self)
         logger.debug('Disabled space reclaimer')
 
-    async def _free_space(self, size: int) -> bool:
+    async def free_space(self, size: int) -> bool:
         if is_space_enough(self.path, size):
             return True
         if self.recycle_records:

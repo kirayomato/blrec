@@ -16,7 +16,7 @@ import shutil
 from ..bili.live import Live
 from ..core import Recorder, RecorderEventListener
 from ..core.path_provider import PathProvider
-from ..disk_space import space_monitors
+from ..disk_space import space_reclaimers
 from ..event.event_emitter import EventEmitter, EventListener
 from ..exception import exception_callback, submit_exception
 from ..flv.helpers import is_valid_flv_file
@@ -511,9 +511,11 @@ class Postprocessor(
         required = int(video_size * 1.2 * 1024**3)
         self._logger.info(f'Freeing {required} bytes for {video_path} ...')
 
-        for space_monitor in space_monitors():
+        for reclaimer in space_reclaimers():
+            if not reclaimer.enabled:
+                continue
             with suppress(Exception):
-                if await space_monitor.reclaim_space(video_path, required):
+                if await reclaimer.free_space(required):
                     return
 
         self._logger.warning(f'Failed to free enough space for {video_path}')
