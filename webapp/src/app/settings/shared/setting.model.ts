@@ -73,6 +73,13 @@ export interface PostprocessingSettings {
 
 export type PostprocessingOptions = Nullable<PostprocessingSettings>;
 
+export interface RetentionSettings {
+  maxKeepDays: number;
+  maxKeepSize: number;
+}
+
+export type RetentionOptions = Nullable<RetentionSettings>;
+
 export interface TaskOptions {
   output: OutputOptions;
   biliApi: BiliApiOptions;
@@ -80,6 +87,7 @@ export interface TaskOptions {
   danmaku: DanmakuOptions;
   recorder: RecorderOptions;
   postprocessing: PostprocessingOptions;
+  retention: RetentionOptions;
 }
 
 export type TaskOptionsIn = PartialDeep<TaskOptions>;
@@ -92,7 +100,13 @@ export interface TaskSettings extends TaskOptions {
 
 export type GlobalTaskSettings = Pick<
   Settings,
-  'output' | 'biliApi' | 'header' | 'danmaku' | 'recorder' | 'postprocessing'
+  | 'output'
+  | 'biliApi'
+  | 'header'
+  | 'danmaku'
+  | 'recorder'
+  | 'postprocessing'
+  | 'retention'
 >;
 
 export interface OutputSettings {
@@ -427,6 +441,7 @@ export interface Settings {
   danmaku: DanmakuSettings;
   recorder: RecorderSettings;
   postprocessing: PostprocessingSettings;
+  retention: RetentionSettings;
   space: SpaceSettings;
   emailNotification: EmailNotificationSettings;
   serverchanNotification: ServerchanNotificationSettings;

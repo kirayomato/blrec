@@ -42,6 +42,8 @@ __all__ = (
     'RecorderSettings',
     'PostprocessingSettings',
     'PostprocessingOptions',
+    'RetentionOptions',
+    'RetentionSettings',
     'TaskOptions',
     'TaskSettings',
     'OutputSettings',
@@ -274,6 +276,32 @@ class OutputOptions(BaseModel):
         return value
 
 
+class RetentionOptions(BaseModel):
+    max_keep_days: Optional[int]  # days
+    max_keep_size: Optional[int]  # file size in bytes
+
+    @validator('max_keep_days')
+    def _validate_max_keep_days(cls, value: Optional[int]) -> Optional[int]:
+        # days, 0 indicates not limit.
+        if value is not None:
+            if not (0 <= value <= 3650):
+                raise ValueError('The max keep days must be in the range of 0 to 3650')
+        return value
+
+    @validator('max_keep_size')
+    def _validate_max_keep_size(cls, value: Optional[int]) -> Optional[int]:
+        # file size in bytes, 0 indicates not limit.
+        if value is not None:
+            if not (value == 0 or 1 * 1024**3 <= value <= 1024**4):  # 1TB
+                raise ValueError('The max keep size must in the range of 10GB to 1TB')
+        return value
+
+
+class RetentionSettings(RetentionOptions):
+    max_keep_days: int = 0  # no limit by default
+    max_keep_size: int = 0  # no limit by default
+
+
 def out_dir_factory() -> str:
     path = os.path.normpath(os.path.expanduser(DEFAULT_OUT_DIR))
     os.makedirs(path, exist_ok=True)
@@ -304,12 +332,20 @@ class TaskOptions(BaseModel):
     danmaku: DanmakuOptions = DanmakuOptions()
     recorder: RecorderOptions = RecorderOptions()
     postprocessing: PostprocessingOptions = PostprocessingOptions()
+    retention: RetentionOptions = RetentionOptions()
 
     @classmethod
     def from_settings(cls, settings: TaskSettings) -> TaskOptions:
         return cls(
             **settings.dict(
-                include={'output', 'header', 'danmaku', 'recorder', 'postprocessing'}
+                include={
+                    'output',
+                    'header',
+                    'danmaku',
+                    'recorder',
+                    'postprocessing',
+                    'retention',
+                }
             )
         )
 
@@ -700,6 +736,7 @@ class Settings(BaseModel):
     danmaku: DanmakuSettings = DanmakuSettings()
     recorder: RecorderSettings = RecorderSettings()
     postprocessing: PostprocessingSettings = PostprocessingSettings()
+    retention: RetentionSettings = RetentionSettings()
     space: SpaceSettings = SpaceSettings()
     email_notification: EmailNotificationSettings = EmailNotificationSettings()
     serverchan_notification: ServerchanNotificationSettings = (
@@ -752,6 +789,7 @@ class SettingsIn(BaseModel):
     danmaku: Optional[DanmakuSettings] = None
     recorder: Optional[RecorderSettings] = None
     postprocessing: Optional[PostprocessingSettings] = None
+    retention: Optional[RetentionSettings] = None
     space: Optional[SpaceSettings] = None
     email_notification: Optional[EmailNotificationSettings] = None
     serverchan_notification: Optional[ServerchanNotificationSettings] = None

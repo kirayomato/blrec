@@ -25,6 +25,7 @@ KeyOfSettings = Literal[
     'danmaku',
     'recorder',
     'postprocessing',
+    'retention',
     'space',
     'email_notification',
     'serverchan_notification',

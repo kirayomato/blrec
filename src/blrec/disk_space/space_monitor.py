@@ -14,6 +14,8 @@ __all__ = 'SpaceMonitor', 'SpaceEventListener'
 
 
 class SpaceEventListener(EventListener):
+    async def on_poll(self) -> None: ...
+
     async def on_space_no_enough(
         self, path: str, threshold: int, disk_usage: DiskUsage
     ) -> None: ...
@@ -77,6 +79,7 @@ class SpaceMonitor(
             if not is_space_enough(self.path, self.space_threshold):
                 logger.warning('No enough disk space left')
                 await self._emit_space_no_enough()
+            await self._emit('poll')
             await asyncio.sleep(self.check_interval)
 
     async def _emit_space_no_enough(self) -> None:

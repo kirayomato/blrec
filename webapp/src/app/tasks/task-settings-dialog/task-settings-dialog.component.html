@@ -124,6 +124,80 @@
         </nz-form-item>
       </div>
 
+      <div ngModelGroup="retention" class="form-group retention">
+        <h2>保存限制</h2>
+        <nz-form-item class="setting-item">
+          <nz-form-label
+            class="setting-label"
+            nzNoColon
+            [nzTooltipTitle]="maxKeepDaysTip"
+            >最大保存天数</nz-form-label
+          >
+          <ng-template #maxKeepDaysTip>
+            <p>
+              超过指定天数的录播自动删除
+              <br />
+              设置为 <strong>0</strong> 表示不限制
+              <br />
+              删除遵循空间回收的保留规则：弹幕文件不删，低码率竖屏录像保留
+            </p>
+          </ng-template>
+          <nz-form-control class="setting-control input">
+            <input
+              type="number"
+              min="0"
+              max="3650"
+              nz-input
+              name="maxKeepDays"
+              [(ngModel)]="model.retention.maxKeepDays"
+              [disabled]="options.retention.maxKeepDays === null"
+            />
+          </nz-form-control>
+          <label
+            nz-checkbox
+            [nzChecked]="options.retention.maxKeepDays !== null"
+            (nzCheckedChange)="
+              options.retention.maxKeepDays = $event
+                ? globalSettings.retention.maxKeepDays
+                : null
+            "
+            >覆盖全局设置</label
+          >
+        </nz-form-item>
+        <nz-form-item class="setting-item">
+          <nz-form-label
+            class="setting-label"
+            nzNoColon
+            [nzTooltipTitle]="maxKeepSizeTip"
+            >最大占用体积</nz-form-label
+          >
+          <ng-template #maxKeepSizeTip>
+            <p>
+              录播总占用超过限制时从最旧的开始自动删除
+              <br />
+              不限制设置为 <strong>0 B</strong>
+            </p>
+          </ng-template>
+          <nz-form-control class="setting-control input">
+            <app-input-filesize
+              name="maxKeepSize"
+              [(ngModel)]="model.retention.maxKeepSize"
+              [disabled]="options.retention.maxKeepSize === null"
+            ></app-input-filesize>
+          </nz-form-control>
+          <label
+            nz-checkbox
+            [nzChecked]="options.retention.maxKeepSize !== null"
+            (nzCheckedChange)="
+              options.retention.maxKeepSize = $event
+                ? globalSettings.retention.maxKeepSize
+                : null
+            "
+            >覆盖全局设置</label
+          >
+        </nz-form-item>
+      </div>
+
       <div ngModelGroup="recorder" class="form-group recorder">
         <h2>录制</h2>
         <nz-form-item class="setting-item">

@@ -1,0 +1,42 @@
+<form nz-form [formGroup]="settingsForm">
+  <nz-form-item class="setting-item">
+    <nz-form-label
+      class="setting-label"
+      nzNoColon
+      [nzTooltipTitle]="maxKeepDaysTip"
+      >最大保存天数</nz-form-label
+    >
+    <nz-form-control
+      class="setting-control input"
+      [nzWarningTip]="syncFailedWarningTip"
+      [nzValidateStatus]="
+        syncStatus.maxKeepDays ? maxKeepDaysControl : 'warning'
+      "
+    >
+      <input
+        type="number"
+        min="0"
+        max="3650"
+        nz-input
+        formControlName="maxKeepDays"
+      />
+    </nz-form-control>
+  </nz-form-item>
+  <nz-form-item class="setting-item">
+    <nz-form-label
+      class="setting-label"
+      nzNoColon
+      [nzTooltipTitle]="maxKeepSizeTip"
+      >最大占用体积</nz-form-label
+    >
+    <nz-form-control
+      class="setting-control input"
+      [nzWarningTip]="syncFailedWarningTip"
+      [nzValidateStatus]="
+        syncStatus.maxKeepSize ? maxKeepSizeControl : 'warning'
+      "
+    >
+      <app-input-filesize formControlName="maxKeepSize"></app-input-filesize>
+    </nz-form-control>
+  </nz-form-item>
+</form>

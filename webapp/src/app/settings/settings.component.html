@@ -23,6 +23,12 @@
         ></app-post-processing-settings>
       </app-page-section>
 
+      <app-page-section name="保存限制">
+        <app-retention-settings
+          [settings]="settings.retention"
+        ></app-retention-settings>
+      </app-page-section>
+
       <app-page-section name="硬盘空间">
         <app-disk-space-settings
           [settings]="settings.space"

@@ -27,6 +27,7 @@ from .models import (
     OutputOptions,
     PostprocessingOptions,
     RecorderOptions,
+    RetentionOptions,
     Settings,
     SettingsIn,
     SettingsOut,
@@ -139,10 +140,12 @@ class SettingsManager:
         if settings is None:
             raise NotFoundError(f"The room {room_id} is not existed")
         self._settings.tasks.remove(settings)
+        self._app._space_reclaimer.remove_room_limit(room_id)
         await self.dump_settings()
 
     async def remove_all_task_settings(self) -> None:
         self._settings.tasks.clear()
+        self._app._space_reclaimer.clear_room_limits()
         await self.dump_settings()
 
     async def mark_task_enabled(self, room_id: int) -> None:
@@ -246,6 +249,30 @@ class SettingsManager:
         final_settings = self._settings.output.copy()
         shadow_settings(options, final_settings)
         self._app._task_manager.apply_task_output_settings(room_id, final_settings)
+        self._sync_room_limit(room_id)
+
+    def apply_task_retention_settings(
+        self, room_id: int, options: RetentionOptions
+    ) -> None:
+        self._sync_room_limit(room_id)
+
+    def _sync_room_limit(self, room_id: int) -> None:
+        """把房间的保存限额与路径模板同步给磁盘清理器。"""
+
+        settings = self.find_task_settings(room_id)
+        if settings is None:
+            return
+
+        final_output = self._settings.output.copy()
+        shadow_settings(settings.output, final_output)
+        final_retention = self._settings.retention.copy()
+        shadow_settings(settings.retention, final_retention)
+        self._app._space_reclaimer.set_room_limit(
+            room_id,
+            max_keep_days=final_retention.max_keep_days,
+            max_keep_size=final_retention.max_keep_size,
+            path_template=final_output.path_template,
+        )
 
     def apply_task_postprocessing_settings(
         self, room_id: int, options: PostprocessingOptions
@@ -297,6 +324,10 @@ class SettingsManager:
                 settings.room_id, settings.postprocessing
             )
 
+    def apply_retention_settings(self) -> None:
+        for settings in self._settings.tasks:
+            self._sync_room_limit(settings.room_id)
+
     def apply_space_settings(self) -> None:
         self.apply_space_monitor_settings()
         self.apply_space_reclaimer_settings()
@@ -309,6 +340,8 @@ class SettingsManager:
     def apply_space_reclaimer_settings(self) -> None:
         settings = self._settings.space
         self._app._space_reclaimer.recycle_records = settings.recycle_records
+        for task_settings in self._settings.tasks:
+            self._sync_room_limit(task_settings.room_id)
 
     def apply_email_notification_settings(self) -> None:
         notifier = self._app._email_notifier

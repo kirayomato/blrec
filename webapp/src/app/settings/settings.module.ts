@@ -40,6 +40,7 @@ import { NotificationSettingsComponent } from './notification-settings/notificat
 import { LoggingSettingsComponent } from './logging-settings/logging-settings.component';
 import { DanmakuSettingsComponent } from './danmaku-settings/danmaku-settings.component';
 import { PostProcessingSettingsComponent } from './post-processing-settings/post-processing-settings.component';
+import { RetentionSettingsComponent } from './retention-settings/retention-settings.component';
 import { RecorderSettingsComponent } from './recorder-settings/recorder-settings.component';
 import { HeaderSettingsComponent } from './header-settings/header-settings.component';
 import { UserAgentEditDialogComponent } from './header-settings/user-agent-edit-dialog/user-agent-edit-dialog.component';
@@ -87,6 +88,7 @@ import { GotifyNotificationSettingsResolver } from './shared/services/gotify-not
     LoggingSettingsComponent,
     DanmakuSettingsComponent,
     PostProcessingSettingsComponent,
+    RetentionSettingsComponent,
     RecorderSettingsComponent,
     HeaderSettingsComponent,
     UserAgentEditDialogComponent,

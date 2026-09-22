@@ -49,6 +49,7 @@ AliasKeyOfSettings = Literal[
     'danmaku',
     'recorder',
     'postprocessing',
+    'retention',
     'space',
     'emailNotification',
     'serverchanNotification',
