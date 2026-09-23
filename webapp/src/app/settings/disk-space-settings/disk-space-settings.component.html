@@ -15,9 +15,22 @@
     </nz-form-control>
   </nz-form-item>
   <nz-form-item class="setting-item">
-    <nz-form-label class="setting-label" nzNoColon
+    <nz-form-label
+      class="setting-label"
+      nzNoColon
+      [nzTooltipTitle]="spaceThresholdTip"
       >硬盘空间检测阈值</nz-form-label
     >
+    <ng-template #spaceThresholdTip>
+      <p>
+        剩余空间小于该值时视为空间不足
+        <br />
+        格式：数字 + 可选单位(GB, MB, KB, B)
+        <br />
+        省略单位时按 GB 计算
+        <br />
+      </p>
+    </ng-template>
     <nz-form-control
       class="setting-control select"
       [nzWarningTip]="syncFailedWarningTip"
@@ -25,11 +38,9 @@
         syncStatus.spaceThreshold ? spaceThresholdControl : 'warning'
       "
     >
-      <nz-select
+      <app-input-filesize
         formControlName="spaceThreshold"
-        [nzOptions]="thresholdOptions"
-      >
-      </nz-select>
+      ></app-input-filesize>
     </nz-form-control>
   </nz-form-item>
   <nz-form-item class="setting-item" appSwitchActionable>

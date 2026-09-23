@@ -130,6 +130,9 @@ export function parseDuration(str: string): number | null {
   }
 }
 
+// 单位可省略，省略时按 GB 计算
+export const FILESIZE_PATTERN = /^(\d+(?:\.\d+)?)\s*([TGMK]?B)?$/;
+
 export function formatFilesize(size: number): string {
   return filesize(size, {
     base: 2,
@@ -139,25 +142,25 @@ export function formatFilesize(size: number): string {
 }
 
 export function parseFilesize(str: string): number | null {
-  try {
-    const [_, num, unit] = /^(\d+(?:\.\d+)?)\s*([TGMK]?B)$/.exec(str)!;
-    switch (unit) {
-      case 'B':
-        return parseFloat(num);
-      case 'KB':
-        return 1024 ** 1 * parseFloat(num);
-      case 'MB':
-        return 1024 ** 2 * parseFloat(num);
-      case 'GB':
-        return 1024 ** 3 * parseFloat(num);
-      case 'TB':
-        return 1024 ** 4 * parseFloat(num);
-      default:
-        console.warn(`Unexpected unit: ${unit}`, str);
-        return null;
-    }
-  } catch (error) {
-    console.error(`Failed to parse filesize: ${str}`, error);
+  const matched = FILESIZE_PATTERN.exec(str.trim());
+  if (!matched) {
+    console.error(`Failed to parse filesize: ${str}`);
     return null;
+  }
+  const [, num, unit = 'GB'] = matched;
+  switch (unit) {
+    case 'B':
+      return parseFloat(num);
+    case 'KB':
+      return 1024 ** 1 * parseFloat(num);
+    case 'MB':
+      return 1024 ** 2 * parseFloat(num);
+    case 'GB':
+      return 1024 ** 3 * parseFloat(num);
+    case 'TB':
+      return 1024 ** 4 * parseFloat(num);
+    default:
+      console.warn(`Unexpected unit: ${unit}`, str);
+      return null;
   }
 }

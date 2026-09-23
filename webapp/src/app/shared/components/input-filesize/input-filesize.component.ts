@@ -15,7 +15,7 @@ import {
 
 import { OnChangeType, OnTouchedType } from 'ng-zorro-antd/core/types';
 
-import { formatFilesize, parseFilesize } from '../../../shared/utils';
+import { FILESIZE_PATTERN, formatFilesize, parseFilesize } from '../../../shared/utils';
 import { filterValueChanges } from 'src/app/settings/shared/rx-operators';
 
 @Component({
@@ -42,10 +42,7 @@ export class InputFilesizeComponent implements OnInit, ControlValueAccessor {
     this.formGroup = formBuilder.group({
       filesize: [
         '',
-        [
-          Validators.required,
-          Validators.pattern(/^\d{1,3}(?:\.\d{1,2})?\s?[GMK]?B$/),
-        ],
+        [Validators.required, Validators.pattern(FILESIZE_PATTERN)],
       ],
     });
   }

@@ -63,7 +63,9 @@
             <p>
               自动分割文件以限制录播文件大小
               <br />
-              格式：数字 + 单位(GB, MB, KB, B)
+              格式：数字 + 可选单位(GB, MB, KB, B)
+              <br />
+              省略单位时按 GB 计算
               <br />
               不自动分割文件设置为 <strong>0 B</strong>
               <br />
@@ -174,6 +176,10 @@
           <ng-template #maxKeepSizeTip>
             <p>
               录播总占用超过限制时从最旧的开始自动删除
+              <br />
+              格式：数字 + 可选单位(GB, MB, KB, B)
+              <br />
+              省略单位时按 GB 计算
               <br />
               不限制设置为 <strong>0 B</strong>
             </p>
