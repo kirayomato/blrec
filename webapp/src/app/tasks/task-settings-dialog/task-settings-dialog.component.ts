@@ -121,15 +121,17 @@ export class TaskSettingsDialogComponent implements OnChanges {
     for (const key of Object.keys(this.options)) {
       const prop = key as keyof TaskOptions;
       const options = this.options[prop];
-      const globalSettings = this.globalSettings[prop];
+      const groupSettings = this.globalSettings[prop];
       Reflect.set(
         model,
         prop,
         new Proxy(options, {
           get: (target, prop) => {
-            return (
-              Reflect.get(target, prop) ?? Reflect.get(globalSettings, prop)
-            );
+            const globalValue =
+              groupSettings != null
+                ? Reflect.get(groupSettings, prop)
+                : undefined;
+            return Reflect.get(target, prop) ?? globalValue;
           },
           set: (target, prop, value) => {
             return Reflect.set(target, prop, value);

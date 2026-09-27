@@ -152,19 +152,8 @@
               nz-input
               name="maxKeepDays"
               [(ngModel)]="model.retention.maxKeepDays"
-              [disabled]="options.retention.maxKeepDays === null"
             />
           </nz-form-control>
-          <label
-            nz-checkbox
-            [nzChecked]="options.retention.maxKeepDays !== null"
-            (nzCheckedChange)="
-              options.retention.maxKeepDays = $event
-                ? globalSettings.retention.maxKeepDays
-                : null
-            "
-            >覆盖全局设置</label
-          >
         </nz-form-item>
         <nz-form-item class="setting-item">
           <nz-form-label
@@ -188,19 +177,8 @@
             <app-input-filesize
               name="maxKeepSize"
               [(ngModel)]="model.retention.maxKeepSize"
-              [disabled]="options.retention.maxKeepSize === null"
             ></app-input-filesize>
           </nz-form-control>
-          <label
-            nz-checkbox
-            [nzChecked]="options.retention.maxKeepSize !== null"
-            (nzCheckedChange)="
-              options.retention.maxKeepSize = $event
-                ? globalSettings.retention.maxKeepSize
-                : null
-            "
-            >覆盖全局设置</label
-          >
         </nz-form-item>
       </div>
 

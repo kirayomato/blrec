@@ -28,6 +28,7 @@ from .models import (
     PostprocessingOptions,
     RecorderOptions,
     RetentionOptions,
+    RetentionSettings,
     Settings,
     SettingsIn,
     SettingsOut,
@@ -265,7 +266,9 @@ class SettingsManager:
 
         final_output = self._settings.output.copy()
         shadow_settings(settings.output, final_output)
-        final_retention = self._settings.retention.copy()
+        # 不再有全局保存限制：仅以任务自身的 retention 为准，
+        # 缺省为 RetentionSettings()（max_keep_days/size 均为 0，即不限制）。
+        final_retention = RetentionSettings()
         shadow_settings(settings.retention, final_retention)
         self._app._space_reclaimer.set_room_limit(
             room_id,

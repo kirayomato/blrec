@@ -736,7 +736,6 @@ class Settings(BaseModel):
     danmaku: DanmakuSettings = DanmakuSettings()
     recorder: RecorderSettings = RecorderSettings()
     postprocessing: PostprocessingSettings = PostprocessingSettings()
-    retention: RetentionSettings = RetentionSettings()
     space: SpaceSettings = SpaceSettings()
     email_notification: EmailNotificationSettings = EmailNotificationSettings()
     serverchan_notification: ServerchanNotificationSettings = (
@@ -789,7 +788,6 @@ class SettingsIn(BaseModel):
     danmaku: Optional[DanmakuSettings] = None
     recorder: Optional[RecorderSettings] = None
     postprocessing: Optional[PostprocessingSettings] = None
-    retention: Optional[RetentionSettings] = None
     space: Optional[SpaceSettings] = None
     email_notification: Optional[EmailNotificationSettings] = None
     serverchan_notification: Optional[ServerchanNotificationSettings] = None

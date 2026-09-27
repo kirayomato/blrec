@@ -190,7 +190,6 @@ export class TaskItemComponent implements OnChanges, OnDestroy {
         'danmaku',
         'recorder',
         'postprocessing',
-        'retention',
       ])
     ).subscribe(
       ([taskOptions, globalSettings]) => {

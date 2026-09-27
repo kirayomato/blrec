@@ -25,7 +25,6 @@ KeyOfSettings = Literal[
     'danmaku',
     'recorder',
     'postprocessing',
-    'retention',
     'space',
     'email_notification',
     'serverchan_notification',
@@ -38,3 +37,24 @@ KeyOfSettings = Literal[
 ]
 
 KeySetOfSettings = AbstractSet[KeyOfSettings]
+
+AliasKeyOfSettings = Literal[
+    'version',
+    'tasks',
+    'output',
+    'logging',
+    'biliApi',
+    'header',
+    'danmaku',
+    'recorder',
+    'postprocessing',
+    'space',
+    'emailNotification',
+    'serverchanNotification',
+    'pushdeerNotification',
+    'pushplusNotification',
+    'telegramNotification',
+    'barkNotification',
+    'gotifyNotification',
+    'webhooks',
+]

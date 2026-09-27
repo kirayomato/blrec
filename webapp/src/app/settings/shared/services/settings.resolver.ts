@@ -24,7 +24,6 @@ type PrimarySettings = Pick<
   | 'danmaku'
   | 'recorder'
   | 'postprocessing'
-  | 'retention'
   | 'space'
 >;
 
@@ -48,7 +47,6 @@ export class SettingsResolver implements Resolve<PrimarySettings> {
         'danmaku',
         'recorder',
         'postprocessing',
-        'retention',
         'space',
       ])
       .pipe(

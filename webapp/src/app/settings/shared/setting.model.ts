@@ -106,7 +106,6 @@ export type GlobalTaskSettings = Pick<
   | 'danmaku'
   | 'recorder'
   | 'postprocessing'
-  | 'retention'
 >;
 
 export interface OutputSettings {
@@ -441,7 +440,6 @@ export interface Settings {
   danmaku: DanmakuSettings;
   recorder: RecorderSettings;
   postprocessing: PostprocessingSettings;
-  retention: RetentionSettings;
   space: SpaceSettings;
   emailNotification: EmailNotificationSettings;
   serverchanNotification: ServerchanNotificationSettings;
