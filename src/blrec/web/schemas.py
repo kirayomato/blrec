@@ -1,8 +1,9 @@
 from enum import Enum
-from typing import Any, Dict, Literal, Optional
+from typing import Any, Dict, Optional
 
 from pydantic import BaseModel
 
+from blrec.setting.typing import AliasKeyOfSettings
 
 __all__ = (
     'ResponseMessage',
@@ -37,26 +38,3 @@ class DataSelection(str, Enum):
     RECORDING = 'recording'
     REMUXING = 'remuxing'
     INJECTING = 'injecting'
-
-
-AliasKeyOfSettings = Literal[
-    'version',
-    'tasks',
-    'output',
-    'logging',
-    'biliApi',
-    'header',
-    'danmaku',
-    'recorder',
-    'postprocessing',
-    'retention',
-    'space',
-    'emailNotification',
-    'serverchanNotification',
-    'pushdeerNotification',
-    'pushplusNotification',
-    'telegramNotification',
-    'barkNotification',
-    'gotifyNotification',
-    'webhooks',
-]
