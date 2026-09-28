@@ -9,6 +9,7 @@ import {
   ViewChild,
 } from '@angular/core';
 import { NgForm } from '@angular/forms';
+import { NzModalService } from 'ng-zorro-antd/modal';
 
 import cloneDeep from 'lodash-es/cloneDeep';
 
@@ -45,7 +46,6 @@ export class TaskSettingsDialogComponent implements OnChanges {
   @Input() visible = false;
 
   @Output() visibleChange = new EventEmitter<boolean>();
-  @Output() cancel = new EventEmitter<undefined>();
   @Output() confirm = new EventEmitter<TaskOptionsIn>();
   @Output() afterOpen = new EventEmitter<undefined>();
   @Output() afterClose = new EventEmitter<undefined>();
@@ -87,7 +87,10 @@ export class TaskSettingsDialogComponent implements OnChanges {
   model!: OptionsModel;
   options!: TaskOptions;
 
-  constructor(private changeDetector: ChangeDetectorRef) {}
+  constructor(
+    private changeDetector: ChangeDetectorRef,
+    private modal: NzModalService
+  ) {}
 
   ngOnChanges(): void {
     this.options = cloneDeep(this.taskOptions);
@@ -106,8 +109,17 @@ export class TaskSettingsDialogComponent implements OnChanges {
   }
 
   handleCancel(): void {
-    this.cancel.emit();
-    this.close();
+    const hasChanges =
+      Object.keys(difference(this.options, this.taskOptions!)).length > 0;
+    if (hasChanges) {
+      this.modal.confirm({
+        nzTitle: '设置尚未保存',
+        nzContent: '关闭将放弃未保存的修改，确定关闭？',
+        nzOnOk: () => this.close(),
+      });
+    } else {
+      this.close();
+    }
   }
 
   handleConfirm(): void {
@@ -117,6 +129,10 @@ export class TaskSettingsDialogComponent implements OnChanges {
 
   private setupModel(): void {
     const model = {};
+    // 保存限制只有任务级配置，字段缺省（null）时显示为 0（不限制）
+    const groupDefaults: Partial<Record<keyof TaskOptions, object>> = {
+      retention: { maxKeepDays: 0, maxKeepSize: 0 },
+    };
 
     for (const key of Object.keys(this.options)) {
       const prop = key as keyof TaskOptions;
@@ -124,6 +140,7 @@ export class TaskSettingsDialogComponent implements OnChanges {
       const groupSettings = this.globalSettings[
         prop as keyof GlobalTaskSettings
       ];
+      const defaults = groupDefaults[prop];
       Reflect.set(
         model,
         prop,
@@ -133,7 +150,11 @@ export class TaskSettingsDialogComponent implements OnChanges {
               groupSettings != null
                 ? Reflect.get(groupSettings, prop)
                 : undefined;
-            return Reflect.get(target, prop) ?? globalValue;
+            const defaultValue =
+              defaults != null ? Reflect.get(defaults, prop) : undefined;
+            return (
+              Reflect.get(target, prop) ?? globalValue ?? defaultValue
+            );
           },
           set: (target, prop, value) => {
             return Reflect.set(target, prop, value);
