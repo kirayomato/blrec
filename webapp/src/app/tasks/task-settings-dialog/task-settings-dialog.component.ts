@@ -121,7 +121,9 @@ export class TaskSettingsDialogComponent implements OnChanges {
     for (const key of Object.keys(this.options)) {
       const prop = key as keyof TaskOptions;
       const options = this.options[prop];
-      const groupSettings = this.globalSettings[prop];
+      const groupSettings = this.globalSettings[
+        prop as keyof GlobalTaskSettings
+      ];
       Reflect.set(
         model,
         prop,
