@@ -1,0 +1,200 @@
+<div class="inner-content">
+  <div class="stats-page">
+    <app-page-section name="录像占用">
+      <div class="summary">
+        <nz-statistic
+          nzTitle="房间数"
+          [nzValue]="stats.rooms.length"
+        ></nz-statistic>
+        <nz-statistic
+          nzTitle="录像文件数"
+          [nzValue]="stats.file_count"
+        ></nz-statistic>
+        <nz-statistic
+          nzTitle="总占用"
+          [nzValue]="stats.total_size | filesize"
+        ></nz-statistic>
+        <button
+          class="refresh-button"
+          nz-button
+          nzType="primary"
+          [nzLoading]="loading"
+          (click)="refresh()"
+        >
+          <i nz-icon nzType="reload" nzTheme="outline"></i>
+          刷新
+        </button>
+      </div>
+
+      <div class="out-dir" nz-tooltip [nzTooltipTitle]="stats.out_dir">
+        <i nz-icon nzType="folder-open" nzTheme="outline"></i>
+        <span class="path">{{ stats.out_dir }}</span>
+      </div>
+
+      <nz-table
+        #statsTable
+        class="stats-table"
+        [nzData]="rows"
+        [nzLoading]="loading"
+        [nzPageSize]="20"
+        [nzHideOnSinglePage]="true"
+      >
+        <thead>
+          <tr>
+            <th [nzSortFn]="sortByName" [nzSortDirections]="sortDirections">
+              房间
+            </th>
+            <th
+              style="width: 90px"
+              [nzSortFn]="sortByCount"
+              [nzSortDirections]="sortDirections"
+            >
+              文件数
+            </th>
+            <th
+              style="width: 110px"
+              [nzSortFn]="sortBySize"
+              [nzSortDirections]="sortDirections"
+            >
+              大小
+            </th>
+            <th
+              style="width: 150px"
+              [nzSortFn]="sortByFirstTime"
+              [nzSortDirections]="sortDirections"
+            >
+              开始时间
+            </th>
+            <th
+              style="width: 150px"
+              [nzSortFn]="sortByLastTime"
+              [nzSortDirections]="sortDirections"
+            >
+              结束时间
+            </th>
+            <th
+              style="width: 190px"
+              [nzSortFn]="sortByPercent"
+              [nzSortDirections]="sortDirections"
+            >
+              占比
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          <ng-container *ngFor="let row of statsTable.data; trackBy: trackByName">
+            <tr>
+              <td
+                class="room-name"
+                [title]="row.name"
+                [nzShowExpand]="true"
+                [nzExpand]="expandedRooms.has(row.name)"
+                (nzExpandChange)="onExpandChange(row.name, $event)"
+              >
+                {{ row.name }}
+              </td>
+              <td>{{ row.fileCount }}</td>
+              <td>{{ row.totalSize | filesize }}</td>
+              <td>
+                {{
+                  row.firstTime
+                    ? (row.firstTime | date: 'yyyy-MM-dd HH:mm')
+                    : '-'
+                }}
+              </td>
+              <td>
+                {{
+                  row.lastTime ? (row.lastTime | date: 'yyyy-MM-dd HH:mm') : '-'
+                }}
+              </td>
+              <td>
+                <div class="percent-cell">
+                  <nz-progress
+                    [nzPercent]="row.percent"
+                    [nzShowInfo]="false"
+                    nzSize="small"
+                  ></nz-progress>
+                  <span class="percent-text"
+                    >{{ row.percent | number: '1.0-2' }}%</span
+                  >
+                </div>
+              </td>
+            </tr>
+            <tr [nzExpand]="expandedRooms.has(row.name)">
+              <div class="month-detail">
+                <span class="head">月份</span>
+                <span class="head">文件数</span>
+                <span class="head">大小</span>
+                <ng-container *ngFor="let month of row.monthly">
+                  <span>{{ month.month }}</span>
+                  <span>{{ month.fileCount }}</span>
+                  <span>{{ month.totalSize | filesize }}</span>
+                </ng-container>
+              </div>
+            </tr>
+          </ng-container>
+        </tbody>
+      </nz-table>
+    </app-page-section>
+
+    <app-page-section name="按月统计">
+      <nz-table
+        #monthTable
+        class="stats-table"
+        [nzData]="monthRows"
+        [nzLoading]="loading"
+      >
+        <thead>
+          <tr>
+            <th
+              style="width: 150px"
+              [nzSortFn]="sortByMonth"
+              [nzSortDirections]="sortDirections"
+            >
+              月份
+            </th>
+            <th
+              style="width: 110px"
+              [nzSortFn]="sortByMonthCount"
+              [nzSortDirections]="sortDirections"
+            >
+              文件数
+            </th>
+            <th
+              style="width: 130px"
+              [nzSortFn]="sortByMonthSize"
+              [nzSortDirections]="sortDirections"
+            >
+              大小
+            </th>
+            <th
+              [nzSortFn]="sortByMonthPercent"
+              [nzSortDirections]="sortDirections"
+            >
+              占比
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let row of monthTable.data; trackBy: trackByMonth">
+            <td>{{ row.month }}</td>
+            <td>{{ row.fileCount }}</td>
+            <td>{{ row.totalSize | filesize }}</td>
+            <td>
+              <div class="percent-cell">
+                <nz-progress
+                  [nzPercent]="row.percent"
+                  [nzShowInfo]="false"
+                  nzSize="small"
+                ></nz-progress>
+                <span class="percent-text"
+                  >{{ row.percent | number: '1.0-2' }}%</span
+                >
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </nz-table>
+    </app-page-section>
+  </div>
+</div>

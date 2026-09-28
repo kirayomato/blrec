@@ -62,6 +62,10 @@ class Application:
         self._stop = False
 
     @property
+    def out_dir(self) -> str:
+        return self._out_dir
+
+    @property
     def info(self) -> AppInfo:
         p = psutil.Process(os.getpid())
         with p.oneshot():

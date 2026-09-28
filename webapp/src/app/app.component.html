@@ -40,6 +40,16 @@
             nzMatchRouter="true"
             nz-tooltip
             nzTooltipPlacement="right"
+            [nzTooltipTitle]="collapsed ? '文件统计' : ''"
+          >
+            <i nz-icon nzType="pie-chart" nzTheme="outline"></i>
+            <span><a routerLink="/stats">文件统计</a></span>
+          </li>
+          <li
+            nz-menu-item
+            nzMatchRouter="true"
+            nz-tooltip
+            nzTooltipPlacement="right"
             [nzTooltipTitle]="collapsed ? '设置' : ''"
           >
             <i nz-icon nzType="setting" nzTheme="outline"></i>

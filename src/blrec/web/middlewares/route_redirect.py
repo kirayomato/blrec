@@ -8,7 +8,7 @@ from starlette.types import ASGIApp, Receive, Scope, Send
 class RouteRedirectMiddleware:
     def __init__(self, app: ASGIApp) -> None:
         self._app = app
-        self._pattern = re.compile(r'^/(tasks|settings|about)($|/.*$)')
+        self._pattern = re.compile(r'^/(tasks|settings|about|stats)($|/.*$)')
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if scope['type'] != 'http':

@@ -1,0 +1,78 @@
+@use '../shared/styles/layout';
+
+.inner-content {
+  @extend %inner-content;
+
+  .stats-page {
+    @extend %inner-page;
+    max-width: 1000px;
+  }
+
+  .summary {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 2.5rem;
+    padding: 1.5rem 2rem 0.5rem;
+
+    .refresh-button {
+      margin-left: auto;
+    }
+  }
+
+  .out-dir {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin: 0 2rem;
+    padding: 0.75rem 0 1rem;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+    color: rgba(0, 0, 0, 0.45);
+    font-size: 0.85rem;
+
+    .path {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+  }
+
+  .stats-table {
+    .room-name {
+      word-break: break-all;
+    }
+
+    // 房间行展开后显示的按月明细
+    .month-detail {
+      display: inline-grid;
+      grid-template-columns: 110px 90px 110px;
+      gap: 0.25rem 1rem;
+      margin-left: 1.5rem;
+      padding: 0.25rem 0;
+      font-size: 0.9em;
+      color: rgba(0, 0, 0, 0.65);
+
+      .head {
+        color: rgba(0, 0, 0, 0.45);
+      }
+    }
+
+    .percent-cell {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+
+      nz-progress {
+        flex: 1;
+        min-width: 0;
+      }
+
+      .percent-text {
+        flex: none;
+        width: 3.5rem;
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+      }
+    }
+  }
+}
