@@ -190,12 +190,18 @@ class Postprocessor(
                 _, ext = os.path.splitext(video_path)
                 metadata_path = await make_metadata_file(video_path)
 
-                free_disk = shutil.disk_usage(video_path).free / 1024**3
+                free_disk = (
+                    shutil.disk_usage(os.path.dirname(video_path) or '.').free
+                    / 1024**3
+                )
                 video_size = os.path.getsize(video_path) / 1024**3
 
                 if free_disk < video_size * 1.2:
                     await self._free_space_for(video_path, video_size)
-                    free_disk = shutil.disk_usage(video_path).free / 1024**3
+                    free_disk = (
+                        shutil.disk_usage(os.path.dirname(video_path) or '.').free
+                        / 1024**3
+                    )
 
                 if free_disk < video_size * 1.2:
                     self._logger.warning(
@@ -475,6 +481,19 @@ class Postprocessor(
 
     async def _discard_small_video(self, video_path: str) -> None:
         if not os.path.isfile(video_path):
+            return
+
+        # 与录制器当前持有的路径相同时，说明该文件仍在被写入。
+        # 此时搬走它只会让录制进程继续往已被 rename 的 inode 里写，
+        # 录制结束后再按原路径后处理就会 FileNotFoundError。
+        current = self._recorder.recording_path
+        if (
+            current is not None
+            and os.path.abspath(current) == os.path.abspath(video_path)
+        ):
+            self._logger.warning(
+                f'Skip discarding {video_path}, still being recorded'
+            )
             return
 
         try:
