@@ -106,6 +106,35 @@ async def get_video_duration(path: str) -> Optional[float]:
         return None
 
 
+async def get_video_bitrate(path: str) -> Optional[int]:
+    """Get overall bitrate in bps via ffprobe, None if failed."""
+
+    loop = asyncio.get_running_loop()
+
+    def _probe() -> Optional[int]:
+        args = [
+            'ffprobe',
+            '-v',
+            'error',
+            '-show_entries',
+            'format=bit_rate',
+            '-of',
+            'json',
+            path,
+        ]
+        with Popen(args, stdout=PIPE, stderr=PIPE) as process:
+            stdout, _stderr = process.communicate(timeout=10)
+        data = json.loads(stdout)
+        bit_rate = data.get('format', {}).get('bit_rate')
+        return int(bit_rate) if bit_rate else None
+
+    try:
+        return await loop.run_in_executor(None, _probe)
+    except Exception as e:
+        logger.warning(f'Failed to get bitrate of {path!r}, due to: {repr(e)}')
+        return None
+
+
 def files_related(video_path: str) -> Iterable[str]:
     file_paths = [
         danmaku_path(video_path),

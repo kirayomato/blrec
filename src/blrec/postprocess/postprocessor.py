@@ -34,6 +34,7 @@ from .helpers import (
     discard_file,
     files_related,
     get_extra_metadata,
+    get_video_bitrate,
     get_video_duration,
     move_to_discard,
 )
@@ -52,6 +53,9 @@ DISPLAY_PROGRESS = bool(os.environ.get('BLREC_PROGRESS'))
 
 DISCARD_SIZE_THRESHOLD: Final = 5 * 1024**2  # 5 MiB
 DISCARD_DURATION_THRESHOLD: Final = 15.0  # seconds
+
+# 竖屏自动 remux 的码率上限，超过则保持原FLV（remux_to_mp4 显式开启时不受此限制）
+PORTRAIT_REMUX_MAX_BITRATE: Final = 1500 * 1000  # 2500 kbps
 
 
 class PostprocessorEventListener(EventListener):
@@ -305,14 +309,42 @@ class Postprocessor(
         except Exception as e:
             self._logger.error(f'Failed to write rename note {note_path!r}: {repr(e)}')
 
+    async def _should_remux_portrait(self, video_path: str) -> bool:
+        """竖屏仅在码率低于阈值时才自动 remux。
+
+        高码率竖屏（如 5000kbps 的手机端推流）remux 收益低、耗时高，保持原 FLV 不动。
+        码率探测失败时同样不 remux，避免在码率未知的情况下做高耗时转码。
+        """
+        w, h = await self._live.get_live_resolution(video_path)
+        if w >= h:
+            return False
+
+        bitrate = await get_video_bitrate(video_path)
+        if bitrate is None:
+            self._logger.warning(
+                f'Failed to get bitrate of {video_path}, skip portrait remux'
+            )
+            return False
+
+        if bitrate >= PORTRAIT_REMUX_MAX_BITRATE:
+            self._logger.info(
+                f'Portrait video bitrate {bitrate // 1000}kbps >= '
+                f'{PORTRAIT_REMUX_MAX_BITRATE // 1000}kbps, skip remux: {video_path}'
+            )
+            return False
+
+        return True
+
     async def _process_flv(self, video_path: str, metadata_path: str) -> str:
         video_size = os.path.getsize(video_path)
         if not await self._is_vaild_flv_file(video_path):
             self._logger.warning(f'The flv file may be invalid: {video_path}')
             if video_size < 10 * 1024**2:
                 return video_path
-        w, h = await self._live.get_live_resolution(video_path)
-        if self.remux_to_mp4 or w < h:
+        portrait_remux = False
+        if not self.remux_to_mp4:
+            portrait_remux = await self._should_remux_portrait(video_path)
+        if self.remux_to_mp4 or portrait_remux:
             self._status = PostprocessorStatus.REMUXING
             result_path, remuxing_result = await self._remux_video_to_mp4(
                 video_path, metadata_path
