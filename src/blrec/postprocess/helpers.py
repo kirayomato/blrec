@@ -107,32 +107,28 @@ async def get_video_duration(path: str) -> Optional[float]:
 
 
 async def get_video_bitrate(path: str) -> Optional[int]:
-    """Get overall bitrate in bps via ffprobe, None if failed."""
+    """Get overall bitrate in bps as file size divided by duration, None if failed.
 
-    loop = asyncio.get_running_loop()
-
-    def _probe() -> Optional[int]:
-        args = [
-            'ffprobe',
-            '-v',
-            'error',
-            '-show_entries',
-            'format=bit_rate',
-            '-of',
-            'json',
-            path,
-        ]
-        with Popen(args, stdout=PIPE, stderr=PIPE) as process:
-            stdout, _stderr = process.communicate(timeout=10)
-        data = json.loads(stdout)
-        bit_rate = data.get('format', {}).get('bit_rate')
-        return int(bit_rate) if bit_rate else None
+    ffprobe 的 format=bit_rate 对 FLV 常常缺失或不准，直接用
+    文件体积除以时长更可靠，且能复用已有的 duration 探测。
+    """
 
     try:
-        return await loop.run_in_executor(None, _probe)
-    except Exception as e:
-        logger.warning(f'Failed to get bitrate of {path!r}, due to: {repr(e)}')
+        size = os.path.getsize(path)
+    except OSError as e:
+        logger.warning(f'Failed to get size of {path!r}, due to: {repr(e)}')
         return None
+
+    if size == 0:
+        logger.warning(f'Video file is empty: {path!r}')
+        return None
+
+    duration = await get_video_duration(path)
+    if not duration or duration <= 0:
+        logger.warning(f'Invalid duration {duration} of {path!r}')
+        return None
+
+    return int(size * 8 / duration)
 
 
 def files_related(video_path: str) -> Iterable[str]:
