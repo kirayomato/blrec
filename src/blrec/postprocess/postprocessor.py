@@ -52,6 +52,7 @@ __all__ = (
 DISPLAY_PROGRESS = bool(os.environ.get('BLREC_PROGRESS'))
 
 DISCARD_SIZE_THRESHOLD: Final = 5 * 1024**2  # 5 MiB
+DISCARD_PORTRAIT_SIZE_THRESHOLD: Final = 1 * 1024**2  # 5 MiB
 DISCARD_DURATION_THRESHOLD: Final = 15.0  # seconds
 
 # 竖屏自动 remux 的码率上限，超过则保持原FLV（remux_to_mp4 显式开启时不受此限制）
@@ -195,8 +196,7 @@ class Postprocessor(
                 metadata_path = await make_metadata_file(video_path)
 
                 free_disk = (
-                    shutil.disk_usage(os.path.dirname(video_path) or '.').free
-                    / 1024**3
+                    shutil.disk_usage(os.path.dirname(video_path) or '.').free / 1024**3
                 )
                 video_size = os.path.getsize(video_path) / 1024**3
 
@@ -266,9 +266,7 @@ class Postprocessor(
 
         try:
             path_provider = PathProvider(
-                self.recorder.live,
-                self.recorder.out_dir,
-                self.recorder.path_template,
+                self.recorder.live, self.recorder.out_dir, self.recorder.path_template
             )
             standard_path, _timestamp = path_provider(ts0)
         except Exception as e:
@@ -519,13 +517,10 @@ class Postprocessor(
         # 此时搬走它只会让录制进程继续往已被 rename 的 inode 里写，
         # 录制结束后再按原路径后处理就会 FileNotFoundError。
         current = self._recorder.recording_path
-        if (
-            current is not None
-            and os.path.abspath(current) == os.path.abspath(video_path)
+        if current is not None and os.path.abspath(current) == os.path.abspath(
+            video_path
         ):
-            self._logger.warning(
-                f'Skip discarding {video_path}, still being recorded'
-            )
+            self._logger.warning(f'Skip discarding {video_path}, still being recorded')
             return
 
         try:
@@ -536,11 +531,16 @@ class Postprocessor(
 
         duration = await get_video_duration(video_path)
 
-        too_small = size < DISCARD_SIZE_THRESHOLD
-        too_short = duration is not None and duration < DISCARD_DURATION_THRESHOLD
-
-        if not (too_small or too_short):
-            return
+        if duration is not None:
+            if duration >= DISCARD_DURATION_THRESHOLD:
+                return
+        else:
+            w, h = await self._live.get_live_resolution(video_path)
+            _threshold = DISCARD_SIZE_THRESHOLD
+            if w <= h:
+                _threshold = DISCARD_PORTRAIT_SIZE_THRESHOLD
+            if size >= _threshold:
+                return
 
         self._logger.info(
             f'Discarding small video file: {video_path}, '
