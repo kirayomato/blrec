@@ -56,7 +56,7 @@ DISCARD_PORTRAIT_SIZE_THRESHOLD: Final = 1 * 1024**2  # 5 MiB
 DISCARD_DURATION_THRESHOLD: Final = 15.0  # seconds
 
 # 竖屏自动 remux 的码率上限，超过则保持原FLV（remux_to_mp4 显式开启时不受此限制）
-PORTRAIT_REMUX_MAX_BITRATE: Final = 1500 * 1000  # 1500 kbps
+PORTRAIT_REMUX_MAX_BITRATE: Final = 2500 * 1000  # 1500 kbps
 
 
 class PostprocessorEventListener(EventListener):
