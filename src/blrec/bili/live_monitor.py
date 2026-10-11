@@ -1,6 +1,7 @@
 import asyncio
 import random
 from contextlib import suppress
+from typing import Optional
 
 from loguru import logger
 
@@ -72,34 +73,64 @@ class LiveMonitor(EventEmitter[LiveEventListener], DanmakuListener, SwitchableMi
 
     def _do_disable(self) -> None:
         self._danmaku_client.remove_listener(self)
-        asyncio.create_task(self._stop_polling())
-        asyncio.create_task(self._stop_checking())
+        self._cancel_checking_timer()
+        # Capture the task references synchronously and hand them to the stop
+        # coroutines. Otherwise a re-enable happening before those coroutines
+        # run would make them read (and cancel) the newly created task.
+        polling_task = getattr(self, '_polling_task', None)
+        checking_task = getattr(self, '_checking_task', None)
+        stop_polling = asyncio.create_task(self._stop_polling(polling_task))
+        stop_polling.add_done_callback(exception_callback)
+        stop_checking = asyncio.create_task(self._stop_checking(checking_task))
+        stop_checking.add_done_callback(exception_callback)
         self._logger.debug('Disabled live monitor')
 
     def _start_polling(self) -> None:
         self._polling_task = asyncio.create_task(self._poll_live_status())
         self._polling_task.add_done_callback(exception_callback)
 
-    async def _stop_polling(self) -> None:
-        self._polling_task.cancel()
+    async def _stop_polling(self, task: Optional[asyncio.Task[None]] = None) -> None:
+        # `task` 只在需要"停掉一个已被别人换掉的旧 task"时显式传入
+        # （见 `_do_disable`）；普通 await 调用点直接沿用当前 task。
+        if task is None:
+            task = getattr(self, '_polling_task', None)
+        if task is None:
+            return
+        task.cancel()
         with suppress(asyncio.CancelledError):
-            await self._polling_task
-        del self._polling_task
+            await task
+        if getattr(self, '_polling_task', None) is task:
+            del self._polling_task
 
     def _start_checking(self) -> None:
+        self._cancel_checking_timer()
         self._checking_task = asyncio.create_task(self._check_if_stream_available())
         self._checking_task.add_done_callback(exception_callback)
-        asyncio.get_running_loop().call_later(
-            1800, lambda: asyncio.create_task(self._stop_checking())
+        checking_task = self._checking_task
+        self._checking_timer = asyncio.get_running_loop().call_later(
+            1800, lambda: asyncio.create_task(self._stop_checking(checking_task))
         )
 
-    async def _stop_checking(self) -> None:
-        if not hasattr(self, '_checking_task'):
+    def _cancel_checking_timer(self) -> None:
+        # Drop the pending `call_later` handle, otherwise it fires after the
+        # monitor was disabled and spawns a pointless stop coroutine.
+        if (timer := getattr(self, '_checking_timer', None)) is not None:
+            timer.cancel()
+            del self._checking_timer
+
+    async def _stop_checking(self, task: Optional[asyncio.Task[None]] = None) -> None:
+        # `task` 只在需要"停掉一个已被别人换掉的旧 task"时显式传入
+        # （见 `_do_disable`）；普通 await 调用点直接沿用当前 task。
+        if task is None:
+            task = getattr(self, '_checking_task', None)
+        if task is None:
             return
-        self._checking_task.cancel()
+        task.cancel()
         with suppress(asyncio.CancelledError):
-            await self._checking_task
-        del self._checking_task
+            await task
+        if getattr(self, '_checking_task', None) is task:
+            del self._checking_task
+            self._cancel_checking_timer()
 
     async def on_client_reconnected(self) -> None:
         # check the live status after the client reconnected and simulate

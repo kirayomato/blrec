@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+from contextlib import suppress
 from datetime import datetime, timedelta
 from typing import Iterator, Optional
 import os
@@ -15,6 +16,7 @@ from blrec.bili.models import RoomInfo
 from blrec.bili.typing import QualityNumber, StreamFormat
 from blrec.core.typing import MetaData
 from blrec.event.event_emitter import EventEmitter, EventListener
+from blrec.exception import exception_callback
 from blrec.flv.operators import StreamProfile
 from blrec.setting.typing import RecordingMode
 from blrec.utils.mixins import AsyncStoppableMixin
@@ -472,6 +474,7 @@ class Recorder(
 
         if self.danmaku_only:
             self._dump_task = asyncio.create_task(self._start_dumping())
+            self._dump_task.add_done_callback(exception_callback)
         elif self._live.is_living():
             self._stream_available = True
             await self._start_recording()
@@ -479,9 +482,13 @@ class Recorder(
             self._print_waiting_message()
 
     async def _do_stop(self) -> None:
-        if hasattr(self, '_dump_task'):
-            self._dump_task.cancel()
-            del self._dump_task
+        task = getattr(self, '_dump_task', None)
+        if task is not None:
+            task.cancel()
+            with suppress(asyncio.CancelledError):
+                await task
+            if getattr(self, '_dump_task', None) is task:
+                del self._dump_task
         await self._stop_recording()
         self._live_monitor.remove_listener(self)
         self._danmaku_dumper.remove_listener(self)
@@ -506,41 +513,48 @@ class Recorder(
         self._danmaku_dumper.enable()
         self._danmaku_receiver.start()
         while True:
-            await self._start_dumper()
-            date = datetime.now()
-            t0 = datetime(date.year, date.month, date.day) + timedelta(days=1)
-            t1 = (t0 - date).total_seconds()
-            await asyncio.sleep(t1 + 0.1)
-            await self._danmaku_dumper._stop_dumping()
-            self._danmaku_dumper.clear_files()
+            try:
+                await self._start_dumper()
+                date = datetime.now()
+                t0 = datetime(date.year, date.month, date.day) + timedelta(days=1)
+                t1 = (t0 - date).total_seconds()
+                await asyncio.sleep(t1 + 0.1)
+                await self._danmaku_dumper._stop_dumping()
+                self._danmaku_dumper.clear_files()
+            except Exception as e:
+                self._logger.warning(f'Failed to dump danmaku: {repr(e)}')
+                await asyncio.sleep(5)
 
     async def _start_recording(self) -> None:
         if self._recording:
             return
         self._recording = True
 
-        await self._reconnect_danmaku()
-        if self.save_raw_danmaku:
-            self._raw_danmaku_dumper.enable()
-            self._raw_danmaku_receiver.start()
-        self._danmaku_dumper.enable()
-        self._danmaku_receiver.start()
-        self._cover_downloader.enable()
-        self._stream_recorder.add_listener(self)
+        try:
+            await self._reconnect_danmaku()
+            if self.save_raw_danmaku:
+                self._raw_danmaku_dumper.enable()
+                self._raw_danmaku_receiver.start()
+            self._danmaku_dumper.enable()
+            self._danmaku_receiver.start()
+            self._cover_downloader.enable()
+            self._stream_recorder.add_listener(self)
 
-        await self._prepare()
+            await self._prepare()
 
-        if self._stream_available:
-            await self._stream_recorder.start()
+            if self._stream_available:
+                await self._stream_recorder.start()
+        except Exception:
+            # roll back the partially started components so a later attempt
+            # is not blocked by the stale flag
+            self._recording = False
+            await self._teardown_recording()
+            raise
 
         self._logger.info('Started recording')
         await self._emit('recording_started', self)
 
-    async def _stop_recording(self) -> None:
-        if not self._recording:
-            return
-        self._recording = False
-
+    async def _teardown_recording(self) -> None:
         await self._stream_recorder.stop()
         if self.save_raw_danmaku:
             self._raw_danmaku_dumper.disable()
@@ -549,6 +563,13 @@ class Recorder(
         self._danmaku_receiver.stop()
         self._cover_downloader.disable()
         self._stream_recorder.remove_listener(self)
+
+    async def _stop_recording(self) -> None:
+        if not self._recording:
+            return
+        self._recording = False
+
+        await self._teardown_recording()
 
         if self._stopped:
             self._logger.info('Recording Cancelled')
