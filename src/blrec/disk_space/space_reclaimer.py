@@ -241,7 +241,7 @@ class SpaceReclaimer(SpaceEventListener, SwitchableMixin):
             logger.warning(f'Failed to get size of {path!r}: {repr(e)}')
             return True
 
-        if height > width and bitrate < self._VIDEO_BITRATE_THRESHOLD:
+        if height > width:
             logger.info(f'Keep {path!r}, portrait {width}x{height}, {bitrate:.0f}kbps')
             return True
 
