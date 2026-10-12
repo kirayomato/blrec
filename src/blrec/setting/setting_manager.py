@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import time
 from random import uniform
 from typing import TYPE_CHECKING, Optional, cast
 
@@ -19,6 +20,7 @@ from ..notification import (
 from ..webhook import WebHook
 from .helpers import shadow_settings, update_settings
 from .models import (
+    CookieLoginInfo,
     DanmakuOptions,
     HeaderOptions,
     MessageTemplateSettings,
@@ -64,12 +66,23 @@ class SettingsManager:
             if src_sub_settings == dst_sub_settings:
                 continue
 
+            cookie_changed = False
+            if name == 'header':
+                cookie_changed = self._on_cookie_changed(
+                    src_sub_settings, dst_sub_settings
+                )
+
             if isinstance(src_sub_settings, list):
                 assert isinstance(dst_sub_settings, list)
                 setattr(self._settings, name, src_sub_settings)
             else:
                 update_settings(src_sub_settings, dst_sub_settings)
             changed = True
+
+            if cookie_changed:
+                # 校验放在写入之后，读到的就是刚保存的新 cookie；
+                # 校验失败时保留上一次的登录信息。
+                await self._check_cookie_login_info(dst_sub_settings)
 
             func = getattr(self, f'apply_{name}_settings')
             if asyncio.iscoroutinefunction(func):
@@ -82,6 +95,56 @@ class SettingsManager:
             await self.dump_settings()
 
         return self.get_settings(cast(KeySetOfSettings, settings.__fields_set__))
+
+    def _on_cookie_changed(
+        self, src: HeaderOptions, dst: HeaderSettings
+    ) -> bool:
+        """判断本次提交是否改动了 cookie 的值，是则刷新更新时间戳。
+
+        时间戳只反映 cookie 的最后一次改动，与校验是否成功无关。
+
+        ``src`` 里没有携带 ``cookie_updated_at`` / ``login_info``（``SettingsIn.header``
+        是 ``HeaderOptions``），所以它们只可能由服务端写入，客户端无法伪造。
+
+        Returns:
+            是否发生了变化。
+        """
+        if 'cookie' not in src.__fields_set__ or dst.cookie == src.cookie:
+            return False
+        dst.cookie_updated_at = time.time()
+        return True
+
+    async def _check_cookie_login_info(self, settings: HeaderSettings) -> None:
+        """校验新 cookie 的登录状态，成功才刷新登录信息。
+
+        cookie 无效或网络异常时保留上一次的 ``login_info``；``cookie_updated_at``
+        已由 ``_on_cookie_changed`` 更新，与此处的校验结果无关。
+        """
+        if not settings.cookie:
+            return
+        login_info = await self._fetch_login_info(settings.cookie)
+        if login_info is None:
+            return
+        settings.login_info = login_info
+        logger.info(f'Cookie login info updated: uid={login_info.uid}')
+
+    async def _fetch_login_info(self, cookie: str) -> Optional[CookieLoginInfo]:
+        """请求登录信息接口，返回登录结果；未登录或请求异常时返回 ``None``。"""
+        from ..bili.helpers import get_nav
+
+        try:
+            json_res = await get_nav(cookie)
+        except Exception as exc:
+            logger.warning(f'Failed to validate cookie: {repr(exc)}')
+            return None
+        data = json_res.get('data') or {}
+        if json_res.get('code') != 0 or not data.get('isLogin'):
+            logger.warning(f'Cookie is not logged in: {json_res.get("code")}')
+            return None
+        return CookieLoginInfo(
+            uid=int(data.get('mid') or 0),
+            uname=str(data.get('uname') or ''),
+        )
 
     def get_task_options(self, room_id: int) -> TaskOptions:
         if settings := self.find_task_settings(room_id):

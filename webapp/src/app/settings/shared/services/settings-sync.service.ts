@@ -4,7 +4,6 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { Observable, of } from 'rxjs';
 import { catchError, filter, map, scan, switchMap, tap } from 'rxjs/operators';
 import isEmpty from 'lodash-es/isEmpty';
-import isEqual from 'lodash-es/isEqual';
 import mapValues from 'lodash-es/mapValues';
 import { NzMessageService } from 'ng-zorro-antd/message';
 
@@ -71,8 +70,10 @@ export class SettingsSyncService {
           retry(3, 300),
           tap(
             (settings) => {
+              // 服务端可能返回比表单更多的字段（例如 header 的 cookieUpdatedAt），
+              // 因此这里只比较表单实际提交的那些字段。
               console.assert(
-                isEqual(settings[key], curr),
+                isEmpty(difference(curr!, settings[key]!)),
                 'result settings should equal current settings',
                 { curr, result: settings[key] }
               );

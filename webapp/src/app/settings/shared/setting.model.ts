@@ -8,12 +8,22 @@ export interface BiliApiSettings {
 
 export type BiliApiOptions = Nullable<BiliApiSettings>;
 
+export interface CookieLoginInfo {
+  uid: number;
+  uname: string;
+}
+
 export interface HeaderSettings {
   userAgent: string;
   cookie: string;
+  // Unix 时间戳（秒），记录当前 cookie 上一次被改动的时刻。
+  cookieUpdatedAt: number | null;
+  // 最近一次校验成功的登录结果，与 cookie 未必指向同一账号。
+  loginInfo: CookieLoginInfo | null;
 }
 
-export type HeaderOptions = Nullable<HeaderSettings>;
+// 任务级 header 选项只承载 userAgent 与 cookie，与后端的 HeaderOptions 对应。
+export type HeaderOptions = Nullable<Pick<HeaderSettings, 'userAgent' | 'cookie'>>;
 
 export interface DanmakuSettings {
   danmuUname: boolean;

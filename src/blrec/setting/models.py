@@ -36,6 +36,7 @@ __all__ = (
     'BiliApiSettings',
     'HeaderOptions',
     'HeaderSettings',
+    'CookieLoginInfo',
     'DanmakuOptions',
     'DanmakuSettings',
     'RecorderOptions',
@@ -134,11 +135,22 @@ class HeaderOptions(BaseModel):
     cookie: Optional[str]
 
 
+class CookieLoginInfo(BaseModel):
+    """最近一次用当前 cookie 校验成功的登录结果。"""
+
+    uid: int
+    uname: str
+
+
 class HeaderSettings(HeaderOptions):
     user_agent: str = (
         'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36'  # noqa
     )
     cookie: str = ''
+    # Unix 时间戳（秒），记录当前 cookie 上一次被改动的时刻。
+    cookie_updated_at: Optional[float] = None
+    # 最近一次校验成功的登录结果，与 cookie 未必指向同一账号（cookie 改动后校验失败时保留旧值）。
+    login_info: Optional[CookieLoginInfo] = None
 
 
 class DanmakuOptions(BaseModel):
@@ -784,7 +796,7 @@ class SettingsIn(BaseModel):
     output: Optional[OutputSettings] = None
     logging: Optional[LoggingSettings] = None
     bili_api: Optional[BiliApiSettings] = None
-    header: Optional[HeaderSettings] = None
+    header: Optional[HeaderOptions] = None
     danmaku: Optional[DanmakuSettings] = None
     recorder: Optional[RecorderSettings] = None
     postprocessing: Optional[PostprocessingSettings] = None
@@ -802,4 +814,6 @@ class SettingsIn(BaseModel):
 class SettingsOut(SettingsIn):
     version: Optional[str] = None
     tasks: Optional[List[TaskSettings]] = None
+    # 输出侧需要把 cookie 更新时间一并带给前端，因此比输入侧多出该字段。
+    header: Optional[HeaderSettings] = None
     gotify_notification: Optional[GotifyNotificationSettings] = None
