@@ -25,3 +25,29 @@
     text-align: center;
   }
 }
+
+.test-result {
+  display: flex;
+  align-items: flex-start;
+
+  .test-result-icon {
+    margin-top: 2px;
+    margin-right: 12px;
+    font-size: 22px;
+    color: #ff4d4f;
+  }
+
+  &.test-result-succeeded .test-result-icon {
+    color: #52c41a;
+  }
+
+  .test-result-title {
+    font-weight: 500;
+  }
+
+  .test-result-line {
+    margin-top: 4px;
+    color: rgba(0, 0, 0, 0.65);
+    word-break: break-all;
+  }
+}

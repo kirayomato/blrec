@@ -29,6 +29,17 @@ const QRCODE_MODULE_SIZE = 4;
 const QRCODE_LIGHT_COLOR = '#ffffff';
 const QRCODE_DARK_COLOR = '#000000';
 
+/**
+ * 一次 cookie 测试的结果，用于在结果弹窗里展示。
+ */
+interface CookieTestResult {
+  succeeded: boolean;
+  uid?: number;
+  uname?: string;
+  // 测试失败时展示的错误信息。
+  errorMessage?: string;
+}
+
 @Component({
   selector: 'app-cookie-edit-dialog',
   templateUrl: './cookie-edit-dialog.component.html',
@@ -54,6 +65,11 @@ export class CookieEditDialogComponent implements OnChanges, OnDestroy {
   qrcodeVisible = false;
   qrcodeStatus?: QrCodeLoginStatus;
   qrcodeLoginFailed = false;
+
+  /** 测试结果弹窗是否可见。 */
+  testResultVisible = false;
+  /** 最近一次测试的结果，弹窗可见时才有意义。 */
+  testResult?: CookieTestResult;
 
   private pollingSubscription?: Subscription;
   private qrcodeKey = '';
@@ -137,17 +153,45 @@ export class CookieEditDialogComponent implements OnChanges, OnDestroy {
   }
 
   testCookie(): void {
-    this.validationService
-      .validateCookie(this.control.value)
-      .subscribe((result) => {
-        if (result.code === 0) {
-          this.message.success(
-            `uid: ${result.data?.mid}, uname: ${result.data?.uname}`
-          );
-        } else {
-          this.message.error(`${result.code}: ${result.message}`);
-        }
-      });
+    const cookie = this.control.value.trim();
+    this.validationService.validateCookie(cookie).subscribe(
+      (result) => {
+        this.testResult =
+          result.code === 0
+            ? {
+                succeeded: true,
+                uid: result.data?.mid,
+                uname: result.data?.uname,
+              }
+            : {
+                succeeded: false,
+                errorMessage: `${result.code}: ${result.message}`,
+              };
+        this.testResultVisible = true;
+        this.changeDetector.markForCheck();
+      },
+      (error) => {
+        this.testResult = {
+          succeeded: false,
+          errorMessage: error.message,
+        };
+        this.testResultVisible = true;
+        this.changeDetector.markForCheck();
+      }
+    );
+  }
+
+  /** 保存测试通过（或被用户强行确认）的 cookie，等价于点「确定」。 */
+  handleSaveTestResult(): void {
+    this.testResultVisible = false;
+    this.confirm.emit(this.control.value.trim());
+    this.close();
+  }
+
+  /** 只关闭测试结果窗口，回到编辑框继续修改。 */
+  closeTestResult(): void {
+    this.testResultVisible = false;
+    this.changeDetector.markForCheck();
   }
 
   toggleQrcode(): void {
