@@ -16,7 +16,7 @@ import {
 import { Observable } from 'rxjs';
 import mapValues from 'lodash-es/mapValues';
 
-import { HeaderSettings } from '../shared/setting.model';
+import { CookieLoginInfo, HeaderSettings } from '../shared/setting.model';
 import {
   SettingsSyncService,
   SyncStatus,
@@ -37,6 +37,9 @@ export class HeaderSettingsComponent implements OnInit, OnChanges {
   readonly settingsForm: FormGroup;
   readonly syncFailedWarningTip = SYNC_FAILED_WARNING_TIP;
 
+  cookieUpdatedAt?: number | null;
+  loginInfo?: CookieLoginInfo | null;
+
   constructor(
     formBuilder: FormBuilder,
     private changeDetector: ChangeDetectorRef,
@@ -56,9 +59,33 @@ export class HeaderSettingsComponent implements OnInit, OnChanges {
     return this.settingsForm.get('cookie') as FormControl;
   }
 
+  get cookieUpdatedAtText(): string {
+    const updatedAt = this.cookieUpdatedAt;
+    if (!updatedAt) {
+      return '从未更新';
+    }
+    return new Date(updatedAt * 1000).toLocaleString('zh-CN', { hour12: false });
+  }
+
+  get loginInfoText(): string {
+    const loginInfo = this.loginInfo;
+    if (!loginInfo) {
+      return '无有效登录信息';
+    }
+    return `${loginInfo.uname} (uid: ${loginInfo.uid})`;
+  }
+
   ngOnChanges(): void {
     this.syncStatus = mapValues(this.settings, () => true);
-    this.settingsForm.setValue(this.settings);
+    // cookieUpdatedAt 与 loginInfo 由服务端写入，不属于表单字段，
+    // 因此只能 patch 而不能 setValue。
+    this.settingsForm.patchValue({
+      userAgent: this.settings.userAgent,
+      cookie: this.settings.cookie,
+    });
+    this.cookieUpdatedAt = this.settings.cookieUpdatedAt;
+    this.loginInfo = this.settings.loginInfo;
+    this.changeDetector.markForCheck();
   }
 
   ngOnInit(): void {
@@ -70,6 +97,10 @@ export class HeaderSettingsComponent implements OnInit, OnChanges {
       )
       .subscribe((detail) => {
         this.syncStatus = { ...this.syncStatus, ...calcSyncStatus(detail) };
+        if ('result' in detail && detail.result) {
+          this.cookieUpdatedAt = detail.result.cookieUpdatedAt;
+          this.loginInfo = detail.result.loginInfo;
+        }
         this.changeDetector.markForCheck();
       });
   }

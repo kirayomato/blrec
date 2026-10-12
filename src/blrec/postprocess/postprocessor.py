@@ -317,19 +317,19 @@ class Postprocessor(
         if w >= h:
             return False
 
-        bitrate = await get_video_bitrate(video_path)
-        if bitrate is None:
-            self._logger.warning(
-                f'Failed to get bitrate of {video_path}, skip portrait remux'
-            )
-            return False
+        # bitrate = await get_video_bitrate(video_path)
+        # if bitrate is None:
+        #     self._logger.warning(
+        #         f'Failed to get bitrate of {video_path}, skip portrait remux'
+        #     )
+        #     return False
 
-        if bitrate >= PORTRAIT_REMUX_MAX_BITRATE:
-            self._logger.info(
-                f'Portrait video bitrate {bitrate // 1000}kbps >= '
-                f'{PORTRAIT_REMUX_MAX_BITRATE // 1000}kbps, skip remux: {video_path}'
-            )
-            return False
+        # if bitrate >= PORTRAIT_REMUX_MAX_BITRATE:
+        #     self._logger.info(
+        #         f'Portrait video bitrate {bitrate // 1000}kbps >= '
+        #         f'{PORTRAIT_REMUX_MAX_BITRATE // 1000}kbps, skip remux: {video_path}'
+        #     )
+        #     return False
 
         return True
 

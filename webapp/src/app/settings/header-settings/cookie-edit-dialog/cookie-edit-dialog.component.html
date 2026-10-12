@@ -65,3 +65,40 @@
     </button>
   </ng-template>
 </nz-modal>
+
+<nz-modal
+  nzTitle="Cookie 测试结果"
+  nzCentered
+  nzWidth="420"
+  [(nzVisible)]="testResultVisible"
+  [nzFooter]="testResultFooter"
+>
+  <ng-container *nzModalContent>
+    <ng-container *ngIf="testResult as result">
+      <div class="test-result" [class.test-result-succeeded]="result.succeeded">
+        <span
+          nz-icon
+          [nzType]="result.succeeded ? 'check-circle' : 'close-circle'"
+          class="test-result-icon"
+        ></span>
+        <div class="test-result-body">
+          <ng-container *ngIf="result.succeeded; else testFailed">
+            <div class="test-result-title">登录成功</div>
+            <div class="test-result-line">uid: {{ result.uid }}</div>
+            <div class="test-result-line">uname: {{ result.uname }}</div>
+          </ng-container>
+          <ng-template #testFailed>
+            <div class="test-result-title">登录失败</div>
+            <div class="test-result-line">{{ result.errorMessage }}</div>
+          </ng-template>
+        </div>
+      </div>
+    </ng-container>
+  </ng-container>
+  <ng-template #testResultFooter>
+    <button nz-button nzType="default" (click)="closeTestResult()">关闭</button>
+    <button nz-button nzType="primary" (click)="handleSaveTestResult()">
+      保存
+    </button>
+  </ng-template>
+</nz-modal>

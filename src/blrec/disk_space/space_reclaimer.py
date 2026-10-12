@@ -95,13 +95,21 @@ class SpaceReclaimer(SpaceEventListener, SwitchableMixin):
         await self.free_space(threshold)
 
     async def on_poll(self) -> None:
+        deleted = False
         for room_id, limit in tuple(self._room_limits.items()):
             try:
-                await self._enforce_room_limit(room_id, limit)
+                if await self._enforce_room_limit(room_id, limit):
+                    deleted = True
             except Exception as exc:
                 logger.warning(
                     f'Failed to enforce room limit of room {room_id}: {repr(exc)}'
                 )
+        if deleted:
+            # 限额清理也可能把房间目录删空，收尾一并扫掉
+            try:
+                await self._remove_empty_dirs()
+            except Exception as exc:
+                logger.warning(f'Failed to remove empty directories: {repr(exc)}')
 
     def set_room_limit(
         self,
@@ -151,23 +159,57 @@ class SpaceReclaimer(SpaceEventListener, SwitchableMixin):
         # rec_ttl 本身配得更短时以它为准，否则一轮都进不去、记录清理会彻底失效。
         min_ttl = min(60 * 60, self.rec_ttl)
         probed: Set[str] = set()
-        while not is_space_enough(self.path, size):
-            if ttl < min_ttl:
-                logger.warning(f'Unable to free {size} bytes from records')
-                return False
-            ts = datetime.now().timestamp() - ttl
-            for path in await self._get_record_file_paths(ts):
-                if path in probed:
-                    continue
-                probed.add(path)
-                # 探测要跑 ffprobe，代价高，所以逐个按需进行，够空间就停
-                if await self._should_keep(path):
-                    continue
-                await self._delete_record(path)
-                if is_space_enough(self.path, size):
-                    break
-            ttl /= 2
-        return True
+        try:
+            while not is_space_enough(self.path, size):
+                if ttl < min_ttl:
+                    logger.warning(f'Unable to free {size} bytes from records')
+                    return False
+                ts = datetime.now().timestamp() - ttl
+                for path in await self._get_record_file_paths(ts):
+                    if path in probed:
+                        continue
+                    probed.add(path)
+                    # 探测要跑 ffprobe，代价高，所以逐个按需进行，够空间就停
+                    if await self._should_keep(path):
+                        continue
+                    await self._delete_record(path)
+                    if is_space_enough(self.path, size):
+                        break
+                ttl /= 2
+            return True
+        finally:
+            # 录像删掉后房间目录会空掉，趁释放空间一并清掉
+            await self._remove_empty_dirs()
+
+    async def _remove_empty_dirs(self) -> None:
+        """清掉输出目录下残留的空目录，输出目录本身不动。"""
+
+        root = os.path.normpath(self.path)
+
+        def _remove() -> None:
+            try:
+                entries = [
+                    entry.path
+                    for entry in os.scandir(root)
+                    if entry.is_dir(follow_symlinks=False)
+                ]
+            except OSError as e:
+                logger.warning(f'Failed to scan {root!r}, due to: {repr(e)}')
+                return
+            for entry_path in entries:
+                # 自底向上遍历，子目录清掉后父目录才可能变空
+                for dirpath, _dirnames, _filenames in os.walk(
+                    entry_path, topdown=False
+                ):
+                    try:
+                        os.rmdir(dirpath)
+                    except OSError:
+                        # 非空或没权限，保留
+                        continue
+                    logger.debug(f'Removed empty directory {dirpath!r}')
+
+        loop = asyncio.get_running_loop()
+        await loop.run_in_executor(None, _remove)
 
     async def _should_keep(self, path: str) -> bool:
         """判断该文件是否保留不删。"""
@@ -199,7 +241,7 @@ class SpaceReclaimer(SpaceEventListener, SwitchableMixin):
             logger.warning(f'Failed to get size of {path!r}: {repr(e)}')
             return True
 
-        if height > width and bitrate < self._VIDEO_BITRATE_THRESHOLD:
+        if height > width:
             logger.info(f'Keep {path!r}, portrait {width}x{height}, {bitrate:.0f}kbps')
             return True
 
@@ -217,14 +259,18 @@ class SpaceReclaimer(SpaceEventListener, SwitchableMixin):
             if os.path.isfile(sidecar):
                 await delete_file(sidecar, 'DEBUG')
 
-    async def _enforce_room_limit(self, room_id: int, limit: _RoomLimit) -> None:
-        """按房间限额清理录像，先删超过天数的，再删到体积上限内。"""
+    async def _enforce_room_limit(self, room_id: int, limit: _RoomLimit) -> bool:
+        """按房间限额清理录像，先删超过天数的，再删到体积上限内。
+
+        返回本房间是否有录像被删除。
+        """
 
         pattern = self._room_file_pattern(room_id, limit.path_template)
         if pattern is None:
-            return
+            return False
 
         keep_cache: Dict[str, bool] = {}
+        deleted = False
 
         async def should_keep(path: str) -> bool:
             if path not in keep_cache:
@@ -249,6 +295,7 @@ class SpaceReclaimer(SpaceEventListener, SwitchableMixin):
                     continue
                 logger.info(f'Delete {path!r} exceeding keep days of room {room_id}')
                 await self._delete_record(path)
+                deleted = True
 
         if limit.max_keep_size > 0:
             paths = await self._get_room_file_paths(pattern)
@@ -271,6 +318,9 @@ class SpaceReclaimer(SpaceEventListener, SwitchableMixin):
                 logger.info(f'Delete {path!r} exceeding keep size of room {room_id}')
                 await self._delete_record(path)
                 total_size -= freed
+                deleted = True
+
+        return deleted
 
     @staticmethod
     def _file_size(path: str) -> int:
