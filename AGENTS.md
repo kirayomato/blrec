@@ -114,7 +114,7 @@ npm test         # 单元测试
 - `cli/` - CLI 入口，用 **typer**（非 click）。所有参数最终转成 `BLREC_*` 环境变量供应用读取
 
 **磁盘与清理**
-- `disk_space/` - `space_monitor.py`（剩余空间监控）、`space_reclaimer.py`（按保留策略删旧录像）、`stats.py`（`aggregate_recording_stats`，文件统计页的数据源，口径见下）
+- `disk_space/` - `space_monitor.py`（剩余空间监控）、`space_reclaimer.py`（按保留策略删旧录像，释放空间或房间限额清理后顺带清掉输出目录下的空目录）、`stats.py`（`aggregate_recording_stats`，文件统计页的数据源，口径见下）
 
 **事件与通知**
 - `event/` - 事件中心。基于 reactivex `Subject`，`event_center.py`（`EventCenter` 单例）、`event_submitters.py`（各业务事件 → `Event`）、`event_emitter.py`、`models.py`、`typing.py`
