@@ -29,8 +29,17 @@ from blrec.utils.mixins import SwitchableMixin
 from .danmaku_receiver import DanmakuReceiver, DanmuMsg
 from .statistics import Statistics
 from .stream_recorder import StreamRecorder, StreamRecorderEventListener
+from .typing import DanmakuMsg
 
 __all__ = 'DanmakuDumper', 'DanmakuDumperEventListener'
+
+
+class DanmakuWriteError(Exception):
+    """写入弹幕文件失败，异常信息里附带触发错误的原始消息。
+
+    `format_exception()` 只输出 traceback，单独的 ValueError 无法定位是哪条
+    弹幕/礼物写坏的，因此在外层包装时把消息 repr 带进异常 message。
+    """
 
 
 class DanmakuDumperEventListener(EventListener):
@@ -196,7 +205,14 @@ class DanmakuDumper(
                 await self._live.update_room_info()
                 self._logger.info(f"Danmaku file created: '{self._path}'")
                 await self._emit('danmaku_file_created', self._path)
-                await writer.write_metadata(self._make_metadata())
+
+                metadata = self._make_metadata()
+                try:
+                    await writer.write_metadata(metadata)
+                except Exception as e:
+                    raise DanmakuWriteError(
+                        f'Failed to write metadata: {metadata!r}'
+                    ) from e
 
                 async for attempt in AsyncRetrying(
                     retry=retry_if_not_exception_type((asyncio.CancelledError)),
@@ -216,29 +232,34 @@ class DanmakuDumper(
     async def _dumping_loop(self, writer: DanmakuWriter) -> None:
         while True:
             msg = await self._receiver.get_message()
+            try:
+                await self._handle_message(writer, msg)
+            except Exception as e:
+                raise DanmakuWriteError(f'Failed to write message: {msg!r}') from e
 
-            if isinstance(msg, DanmuMsg):
-                await writer.write_danmu(self._make_danmu(msg))
-                self._statistics.submit(1)
-            elif isinstance(msg, UserToastMsg):
-                await writer.write_user_toast(self._make_user_toast(msg))
-            elif isinstance(msg, GiftSendMsg):
-                if not self.record_gift_send:
-                    continue
-                record = self._make_gift_send_record(msg)
-                if not self.record_free_gifts and record.is_free_gift():
-                    continue
-                await writer.write_gift_send_record(record)
-            elif isinstance(msg, GuardBuyMsg):
-                if not self.record_guard_buy:
-                    continue
-                await writer.write_guard_buy_record(self._make_guard_buy_record(msg))
-            elif isinstance(msg, SuperChatMsg):
-                if not self.record_super_chat:
-                    continue
-                await writer.write_super_chat_record(self._make_super_chat_record(msg))
-            else:
-                self._logger.warning(f'Unsupported message type: {repr(msg)}')
+    async def _handle_message(self, writer: DanmakuWriter, msg: DanmakuMsg) -> None:
+        if isinstance(msg, DanmuMsg):
+            await writer.write_danmu(self._make_danmu(msg))
+            self._statistics.submit(1)
+        elif isinstance(msg, UserToastMsg):
+            await writer.write_user_toast(self._make_user_toast(msg))
+        elif isinstance(msg, GiftSendMsg):
+            if not self.record_gift_send:
+                return
+            record = self._make_gift_send_record(msg)
+            if not self.record_free_gifts and record.is_free_gift():
+                return
+            await writer.write_gift_send_record(record)
+        elif isinstance(msg, GuardBuyMsg):
+            if not self.record_guard_buy:
+                return
+            await writer.write_guard_buy_record(self._make_guard_buy_record(msg))
+        elif isinstance(msg, SuperChatMsg):
+            if not self.record_super_chat:
+                return
+            await writer.write_super_chat_record(self._make_super_chat_record(msg))
+        else:
+            self._logger.warning(f'Unsupported message type: {repr(msg)}')
 
     def _make_metadata(self) -> Metadata:
         return Metadata(

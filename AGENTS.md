@@ -231,19 +231,20 @@ RecordTaskManager
 9. **pydantic validator 不能重复注册**：在同一进程内删掉 `blrec.setting` 的 `sys.modules` 条目后重新导入，会报 `ConfigError: duplicate validator function ... set allow_reuse=True`。写验证脚本时每个导入场景要用独立进程
 10. **设置变更的时序**：`SettingsManager.change_settings()` 里若要在写入后拿到"旧值"，必须在 `update_settings()` **之前**读取 `dst_*`。写入之后 `dst` 已被覆盖，`dst.cookie != src.cookie` 之类的新旧比较恒为 False
 11. **服务端写入的元数据要挡住客户端伪造**：`SettingsIn` 是客户端可控的输入模型。像"cookie 上次更新时刻""最近一次登录结果"这类只应由服务端写的字段，不能出现在 `SettingsIn` 所接受的子模型里 —— 做法是让 `SettingsIn.header` 用更窄的 `HeaderOptions`（只含 `user_agent` / `cookie`），同时在 `SettingsOut` 显式声明 `header: HeaderSettings`。若只在 `SettingsIn` 收窄而不覆盖 `SettingsOut`，pydantic 会把子类**静默降级**成父类，字段被丢掉
+12. **弹幕 XML 写入前必须按 XML 1.0 字符集过滤**：`danmaku/io.py` 往 lxml 节点填 `uname` / `text` 时，只要含 `U+FFFE`、`U+FFFF` 或半个 emoji 造成的 lone surrogate（如 `'\ud83d'`），就抛 `ValueError: All strings must be XML compatible`，整个弹幕文件写入中断。原因是 lxml 只接受 XML 1.0 `Char` 产生式允许的字符，比 `unicodedata.category(c) != 'Cc'` 严得多（`Cs` / 非字符 `Cn` 都漏网）。现在 `remove_control_characters()` 按码位区间过滤，`record_value_serializer()` 也走它，新增写入字段别绕过这两个入口。真剔除字符时会打一条 WARNING（含码位、字段名、原文片段，同一码位 60 秒限流），日志里搜 `XML-incompatible` 即可反查脏数据来自哪条弹幕/哪个字段。万一写盘仍然失败，`_dumping_loop` 会把异常包成 `DanmakuWriteError`，message 里带原始消息的 `repr`（前端异常弹窗、`format_exception`、日志都能看到，`_handle_message` 的拆分就是为这层包装服务的），这层包装不要去掉
 
 ### 前端
 
-12. **`tsc` 不检查 Angular 模板**：模板绑定错误（如 TS2322）只在 build 时暴露。静态覆盖模板用 `./node_modules/.bin/ngc -p tsconfig.app.json`（cwd = `webapp/`），产物落 `webapp/out-tsc`（已被 `webapp/.gitignore` 忽略）
-13. **`FormGroup.setValue` vs `patchValue`**：`setValue` 要求 key 完全匹配，表单对象上多出（或少）任何字段都会抛错。服务端可能返回比表单更多的字段，此时必须用 `patchValue` 并显式列出表单字段
-14. **`Nullable<T>` 是字段级映射**（`{ [K in keyof T]: T[K] | null }`），不是整体 nullable。给标量加 null 用 `number | null`，别写 `Nullable<number>`。此外 `Nullable<Pick<T, ...>>` 也可用来从宽模型里裁出窄形状（对应后端"收窄输入模型"的写法）
-15. **Annotated FormControl 布局**：`nz-form-item` 里 `nz-form-label` + `nz-form-control` 的组合受 `settings/shared/styles/_setting.scss` 控制；`.setting-value` 靠 `margin-left: auto` 右对齐
+13. **`tsc` 不检查 Angular 模板**：模板绑定错误（如 TS2322）只在 build 时暴露。静态覆盖模板用 `./node_modules/.bin/ngc -p tsconfig.app.json`（cwd = `webapp/`），产物落 `webapp/out-tsc`（已被 `webapp/.gitignore` 忽略）
+14. **`FormGroup.setValue` vs `patchValue`**：`setValue` 要求 key 完全匹配，表单对象上多出（或少）任何字段都会抛错。服务端可能返回比表单更多的字段，此时必须用 `patchValue` 并显式列出表单字段
+15. **`Nullable<T>` 是字段级映射**（`{ [K in keyof T]: T[K] | null }`），不是整体 nullable。给标量加 null 用 `number | null`，别写 `Nullable<number>`。此外 `Nullable<Pick<T, ...>>` 也可用来从宽模型里裁出窄形状（对应后端"收窄输入模型"的写法）
+16. **Annotated FormControl 布局**：`nz-form-item` 里 `nz-form-label` + `nz-form-control` 的组合受 `settings/shared/styles/_setting.scss` 控制；`.setting-value` 靠 `margin-left: auto` 右对齐
 
 ### 验证手段
 
-16. **隔离验证**：跑真实代码做验证时，建议用独立 venv + `PYTHONPATH` 指向本仓库 `src/`，避免污染开发环境。注意某些工具链下 **stdout/stderr 不被捕获**，脚本结果宜写文件再读回
-17. **mock 位置**：`unittest.mock.patch` 要打在**函数被定义的地方**，不是被使用的地方。例如 `setting_manager._check_cookie_login_info` 内写的是 `from ..bili.helpers import get_nav`，则应 patch `blrec.bili.helpers.get_nav`
-18. **不要在一个事件循环里反复 `asyncio.run()`**：循环内多次创建/销毁事件循环会在几百次后硬崩。应写成一个 `async def main()`，在单次 `asyncio.run(main())` 里跑完所有用例
+17. **隔离验证**：跑真实代码做验证时，建议用独立 venv + `PYTHONPATH` 指向本仓库 `src/`，避免污染开发环境。注意某些工具链下 **stdout/stderr 不被捕获**，脚本结果宜写文件再读回
+18. **mock 位置**：`unittest.mock.patch` 要打在**函数被定义的地方**，不是被使用的地方。例如 `setting_manager._check_cookie_login_info` 内写的是 `from ..bili.helpers import get_nav`，则应 patch `blrec.bili.helpers.get_nav`
+19. **不要在一个事件循环里反复 `asyncio.run()`**：循环内多次创建/销毁事件循环会在几百次后硬崩。应写成一个 `async def main()`，在单次 `asyncio.run(main())` 里跑完所有用例
 
 ## Build & Release
 

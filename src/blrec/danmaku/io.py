@@ -2,14 +2,15 @@ from __future__ import annotations
 
 import asyncio
 import html
-import unicodedata
+import re
 from datetime import datetime, timedelta, timezone
+from time import time
 from typing import Any, AsyncIterator, Final, List
 
 import aiofiles
 import attr
+from loguru import logger
 from lxml import etree
-from time import time
 
 from .models import (
     Danmu,
@@ -154,13 +155,17 @@ class DanmakuWriter:
         live_start_time = datetime.fromtimestamp(ts, tz).isoformat()
         ts = metadata.record_start_time
         record_start_time = datetime.fromtimestamp(ts, tz).isoformat()
+        user_name = escape_xml_text(metadata.user_name, 'metadata user_name')
+        room_title = escape_xml_text(metadata.room_title, 'metadata room_title')
+        area = escape_xml_text(metadata.area, 'metadata area')
+        parent_area = escape_xml_text(metadata.parent_area, 'metadata parent_area')
         return f"""\
     <metadata>
-        <user_name>{html.escape(metadata.user_name)}</user_name>
+        <user_name>{user_name}</user_name>
         <room_id>{metadata.room_id}</room_id>
-        <room_title>{html.escape(metadata.room_title)}</room_title>
-        <area>{html.escape(metadata.area)}</area>
-        <parent_area>{html.escape(metadata.parent_area)}</parent_area>
+        <room_title>{room_title}</room_title>
+        <area>{area}</area>
+        <parent_area>{parent_area}</parent_area>
         <live_start_time>{live_start_time}</live_start_time>
         <record_start_time>{record_start_time}</record_start_time>
         <recorder>{metadata.recorder}</recorder>
@@ -175,24 +180,10 @@ class DanmakuWriter:
             ),
             'isEmoji': str(int(dm.isEmoji)),
             'uid': str(dm.uid),
-            'user': dm.uname,
+            'user': remove_control_characters(dm.uname, 'danmu user'),
         }
-
-        try:
-            elem = etree.Element('d', attrib=attrib)
-        except ValueError:
-            # ValueError: All strings must be XML compatible: Unicode or ASCII,
-            # no NULL bytes or control characters
-            attrib['user'] = remove_control_characters(dm.uname)
-            elem = etree.Element('d', attrib=attrib)
-
-        try:
-            elem.text = dm.text
-        except ValueError:
-            # ValueError: All strings must be XML compatible: Unicode or ASCII,
-            # no NULL bytes or control characters
-            elem.text = remove_control_characters(dm.text)
-
+        elem = etree.Element('d', attrib=attrib)
+        elem.text = remove_control_characters(dm.text, f'danmu text (dmid={dm.dmid})')
         return '    ' + etree.tostring(elem, encoding='utf8').decode() + '\n'
 
     def _serialize_user_toast(self, toast: UserToast) -> str:
@@ -202,7 +193,7 @@ class DanmakuWriter:
             value_serializer=record_value_serializer,
         )
         elem = etree.Element('toast', attrib=attrib)
-        elem.text = remove_control_characters(toast.msg)
+        elem.text = remove_control_characters(toast.msg, 'user toast msg')
         return '    ' + etree.tostring(elem, encoding='utf8').decode() + '\n'
 
     def _serialize_gift_send_record(self, record: GiftSendRecord) -> str:
@@ -222,7 +213,7 @@ class DanmakuWriter:
             value_serializer=record_value_serializer,
         )
         elem = etree.Element('sc', attrib=attrib)
-        elem.text = remove_control_characters(record.message)
+        elem.text = remove_control_characters(record.message, 'super chat message')
         return '    ' + etree.tostring(elem, encoding='utf8').decode() + '\n'
 
 
@@ -235,8 +226,47 @@ def record_value_serializer(
         return '金瓜子' if value == 'gold' else '银瓜子'
     if not isinstance(value, str):
         value = str(value)
-    return remove_control_characters(value)
+    return remove_control_characters(value, attribute.name)
 
 
-def remove_control_characters(s: str) -> str:
-    return ''.join(c for c in s if unicodedata.category(c) != 'Cc')
+_XML_INVALID_CHARS = re.compile(
+    '[^\t\n\r\u0020-\ud7ff\ue000-\ufffd\U00010000-\U0010ffff]'
+)
+
+# 同一字段的告警间隔（秒），避免脏弹幕刷屏
+_DROP_LOG_INTERVAL: Final[float] = 60.0
+_last_warned: dict[str, float] = {}
+
+
+def remove_control_characters(s: str, field: str) -> str:
+    """移除 XML 1.0 不允许出现的字符。
+
+    lxml 只接受 XML 1.0 的 Char 产生式所允许的字符，判据比"控制字符"更宽也更严：
+    除 \\t \\n \\r 以外的 C0 控制符要剔除，此外 U+FFFE / U+FFFF 这类非字符、
+    以及半个 emoji 造成的 lone surrogate（如 '\\ud83d'）同样会让赋值抛
+    ValueError: All strings must be XML compatible。unicodedata 的 'Cc' 类别
+    只覆盖 C0/C1，故这里直接按码位区间判断。
+
+    真剔除字符时打一条 warning，含码位与原文片段；同一字段 60 秒内只报一次。
+    """
+    dropped = _XML_INVALID_CHARS.findall(s)
+    if not dropped:
+        return s
+    _log_dropped_characters(dropped, s, field)
+    return _XML_INVALID_CHARS.sub('', s)
+
+
+def _log_dropped_characters(dropped: List[str], source: str, field: str) -> None:
+    now = time()
+    if now - _last_warned.get(field, 0.0) < _DROP_LOG_INTERVAL:
+        return
+    _last_warned[field] = now
+    codes = ' '.join(dict.fromkeys(f'U+{ord(c):04X}' for c in dropped))
+    logger.warning(
+        f'Removed {len(dropped)} XML-incompatible character(s) [{codes}] '
+        f'from {field}: {source!r:.120}'
+    )
+
+
+def escape_xml_text(s: str, field: str) -> str:
+    return html.escape(remove_control_characters(s, field))
