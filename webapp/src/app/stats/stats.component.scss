@@ -18,6 +18,17 @@
     .refresh-button {
       margin-left: auto;
     }
+
+    // 磁盘剩余空间，剩余不足一成时转为警示色
+    .disk-free-stat {
+      .ant-statistic-content {
+        white-space: nowrap;
+      }
+
+      &.low-space .ant-statistic-content {
+        color: #cf1322;
+      }
+    }
   }
 
   .out-dir {

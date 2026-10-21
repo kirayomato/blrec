@@ -2,6 +2,7 @@
 
 import os
 import re
+import shutil
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -58,6 +59,9 @@ class RecordingStats:
     total_size: int
     first_time: Optional[float]
     last_time: Optional[float]
+    # 输出目录所在分区的总容量与剩余空间，取不到时为 None
+    disk_total: Optional[int] = None
+    disk_free: Optional[int] = None
     rooms: List[RoomRecordingStats] = field(default_factory=list)
     monthly: List[MonthlyStats] = field(default_factory=list)
 
@@ -116,12 +120,34 @@ def _parse_recording_time(stem: str) -> Optional[float]:
     return None
 
 
+def _disk_capacity(path: str) -> Tuple[Optional[int], Optional[int]]:
+    """取 path 所在分区的 (总容量, 剩余空间)，取不到时返回 (None, None)。
+
+    输出目录可能还没创建（尚未录制），此时逐级向上取父目录所在分区，
+    这样页面在首次录制前也能显示剩余空间。
+    """
+
+    target = os.path.abspath(path)
+    while True:
+        try:
+            usage = shutil.disk_usage(target)
+        except OSError as e:
+            parent = os.path.dirname(target)
+            if parent == target:
+                logger.warning(f'Failed to get disk usage of {path!r}: {e!r}')
+                return None, None
+            target = parent
+        else:
+            return usage.total, usage.free
+
+
 def aggregate_recording_stats(path: str) -> RecordingStats:
     """汇总输出目录下一级子目录的录像数量、体积与时间分布，按体积降序。
 
     子目录名即房间名，其下的录像文件全部计入该房间；直接放在输出目录下的
     录像归入空名房间，由调用方决定如何展示。录像时间优先取文件名里的时间戳，
-    解析不出时才用 mtime。目录不存在或不可读时返回空统计。
+    解析不出时才用 mtime。同时带上输出目录所在分区的总容量与剩余空间。
+    目录不存在或不可读时返回空统计。
     """
 
     total = _Accumulator()
@@ -185,12 +211,16 @@ def aggregate_recording_stats(path: str) -> RecordingStats:
         reverse=True,
     )
 
+    disk_total, disk_free = _disk_capacity(path)
+
     return RecordingStats(
         out_dir=path,
         file_count=total.file_count,
         total_size=total.total_size,
         first_time=total.first_time,
         last_time=total.last_time,
+        disk_total=disk_total,
+        disk_free=disk_free,
         rooms=room_list,
         monthly=total.make_monthly(),
     )

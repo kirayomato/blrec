@@ -14,6 +14,14 @@
           nzTitle="总占用"
           [nzValue]="stats.total_size | filesize"
         ></nz-statistic>
+        <nz-statistic
+          *ngIf="hasDiskInfo"
+          class="disk-free-stat"
+          [class.low-space]="diskFreeLow"
+          nzTitle="磁盘剩余"
+          [nzValue]="stats.disk_free! | filesize"
+          [nzSuffix]="'/ 共 ' + (stats.disk_total! | filesize)"
+        ></nz-statistic>
         <button
           class="refresh-button"
           nz-button

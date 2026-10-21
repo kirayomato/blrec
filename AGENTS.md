@@ -212,6 +212,7 @@ RecordTaskManager
 
 - 以输出目录的**一级子目录为房间**，只统计 `.flv/.mp4/.ts/.m4s`；根目录散落录像归入空名房间
 - 录像时间**优先取文件名时间戳**（`YYYY-MM-DD-HHMMSS` 或 14 位紧凑格式），解析不出才退回 `mtime`
+- 同一响应里带上输出目录所在分区的 `disk_total` / `disk_free`（`shutil.disk_usage`）；输出目录还没创建时逐级向上取父目录所在分区，取不到则两字段为 `null`，前端据此决定是否显示「磁盘剩余」
 
 ## Common Gotchas
 

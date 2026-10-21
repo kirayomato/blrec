@@ -30,12 +30,28 @@ export class StatsComponent implements OnInit {
     total_size: 0,
     first_time: null,
     last_time: null,
+    disk_total: null,
+    disk_free: null,
     rooms: [],
     monthly: [],
   };
   rows: RoomStatsRow[] = [];
   monthRows: MonthStatsRow[] = [];
   expandedRooms = new Set<string>();
+
+  /** 剩余空间不足一成时高亮提示 */
+  get diskFreeLow(): boolean {
+    const total = this.stats.disk_total;
+    const free = this.stats.disk_free;
+    if (!total || free === null) {
+      return false;
+    }
+    return free / total < 0.1;
+  }
+
+  get hasDiskInfo(): boolean {
+    return this.stats.disk_total !== null && this.stats.disk_free !== null;
+  }
 
   // 取消排序时回到后端给出的默认顺序（按体积降序）
   readonly sortDirections: NzTableSortOrder[] = ['ascend', 'descend', null];

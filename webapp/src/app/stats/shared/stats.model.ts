@@ -19,6 +19,10 @@ export interface RecordingStats {
   readonly total_size: number;
   readonly first_time: number | null;
   readonly last_time: number | null;
+  /** 输出目录所在分区的总容量，取不到时为 null */
+  readonly disk_total: number | null;
+  /** 输出目录所在分区的剩余空间，取不到时为 null */
+  readonly disk_free: number | null;
   readonly rooms: RoomRecordingStats[];
   readonly monthly: MonthlyStats[];
 }
