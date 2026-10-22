@@ -4,14 +4,18 @@ import os
 import re
 from dataclasses import dataclass
 from datetime import datetime
-from functools import partial
 from pathlib import Path, PurePath
-from typing import Dict, Iterable, List, Literal, Optional, Set
+from typing import Dict, Iterable, List, Literal, Optional, Tuple
 
 from loguru import logger
 from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_none
 
-from ..path import extra_metadata_path, ffmpeg_metadata_path, playlist_path
+from ..path import (
+    extra_metadata_path,
+    ffmpeg_metadata_path,
+    playlist_path,
+    record_metadata_path,
+)
 from ..utils.mixins import SwitchableMixin
 from .helpers import delete_file, get_video_resolution_and_duration, is_space_enough
 from .space_monitor import DiskUsage, SpaceEventListener, SpaceMonitor
@@ -31,11 +35,15 @@ def space_reclaimers() -> Iterable['SpaceReclaimer']:
 def _video_of_sidecar(path: str) -> Optional[str]:
     """附属文件对应的主录像，主录像还在时附属文件不该被单独删除。"""
 
-    for suffix in ('.flv.meta.json', '.flv.meta'):
+    # 顺序要紧：.flv.meta.json 也以 .meta.json 结尾，必须先匹配前者
+    for suffix, video_suffix in (
+        ('.flv.meta.json', '.flv'),
+        ('.flv.meta', '.flv'),
+        ('.meta.json', '.m4s'),
+        ('.m3u8', '.m4s'),
+    ):
         if path.endswith(suffix):
-            return path[: -len(suffix)] + '.flv'
-    if path.endswith('.m3u8'):
-        return path[: -len('.m3u8')] + '.m4s'
+            return path[: -len(suffix)] + video_suffix
     return None
 
 
@@ -46,7 +54,7 @@ def _sidecars_of_video(video_path: str) -> List[str]:
     if suffix == '.flv':
         return [ffmpeg_metadata_path(video_path), extra_metadata_path(video_path)]
     if suffix == '.m4s':
-        return [playlist_path(video_path)]
+        return [playlist_path(video_path), record_metadata_path(video_path)]
     return []
 
 
@@ -164,8 +172,7 @@ class SpaceReclaimer(SpaceEventListener, SwitchableMixin):
         # 冷静期最多压缩到 1 小时，避免删到太新的录像；
         # rec_ttl 本身配得更短时以它为准，否则一轮都进不去、记录清理会彻底失效。
         min_ttl = self.min_ttl
-        probed: Set[str] = set()
-        # 缓存保留原因，兜底放弃竖屏保留时无需重新探测
+        # 缓存保留原因，兼作已探测标记；兜底放弃竖屏保留时无需重新探测
         keep_reasons: Dict[str, Optional[_KeepReason]] = {}
         try:
             while not is_space_enough(self.path, size):
@@ -176,9 +183,8 @@ class SpaceReclaimer(SpaceEventListener, SwitchableMixin):
                     return False
                 ts = datetime.now().timestamp() - ttl
                 for path in await self._get_record_file_paths(ts):
-                    if path in probed:
+                    if path in keep_reasons:
                         continue
-                    probed.add(path)
                     # 探测要跑 ffprobe，代价高，所以逐个按需进行，够空间就停
                     reason = await self._keep_reason(path)
                     keep_reasons[path] = reason
@@ -392,8 +398,8 @@ class SpaceReclaimer(SpaceEventListener, SwitchableMixin):
                 key = part[1:-1]
                 segments.append(str(room_id) if key == 'roomid' else '*')
             else:
-                # glob 里 [ 是字符集语法，转义掉模板字面量中的 [
-                segments.append(part.replace('[', '[['))
+                # 模板字面量里的 glob 元字符按字面匹配
+                segments.append(glob.escape(part))
         pattern = os.path.join(self.path, ''.join(segments))
         return os.path.normpath(pattern) + '.*'
 
@@ -411,20 +417,29 @@ class SpaceReclaimer(SpaceEventListener, SwitchableMixin):
         stop=stop_after_attempt(3),
     )
     async def _get_record_file_paths(self, ts: float) -> List[str]:
-        glob_path = os.path.join(self.path, '*/**/*.*')
+        glob_path = os.path.join(self.path, '**', '*.*')
         return await self._get_file_paths(glob_path, ts)
 
     async def _get_file_paths(
         self, glob_path: str, ts: Optional[float] = None
     ) -> List[str]:
-        paths: Iterable[Path]
-        paths = map(lambda p: Path(p), glob.iglob(glob_path, recursive=True))
-        paths = filter(lambda p: p.suffix in self._SUFFIX_SET, paths)
-        if ts is not None:
-            paths = filter(lambda p: p.stat().st_mtime < ts > p.stat().st_atime, paths)
-        func = partial(
-            sorted, paths, key=lambda p: (p.stat().st_mtime, p.stat().st_atime)
-        )
+        def _collect() -> List[str]:
+            # 每个文件只 stat 一次，过滤和排序共用同一份结果
+            entries: List[Tuple[str, float, float]] = []
+            for raw_path in glob.iglob(glob_path, recursive=True):
+                path = Path(raw_path)
+                if path.suffix not in self._SUFFIX_SET:
+                    continue
+                try:
+                    stat = path.stat()
+                except OSError:
+                    # 遍历期间文件被删除或重命名，跳过
+                    continue
+                if ts is not None and not (stat.st_mtime < ts and stat.st_atime < ts):
+                    continue
+                entries.append((str(path), stat.st_mtime, stat.st_atime))
+            entries.sort(key=lambda entry: (entry[1], entry[2]))
+            return [entry[0] for entry in entries]
+
         loop = asyncio.get_running_loop()
-        path_list = await loop.run_in_executor(None, func)
-        return list(map(str, path_list))
+        return await loop.run_in_executor(None, _collect)
