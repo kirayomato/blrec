@@ -19,13 +19,13 @@
       margin-left: auto;
     }
 
-    // 磁盘剩余空间，剩余不足一成时转为警示色
-    .disk-free-stat {
-      .ant-statistic-content {
+    // 磁盘数据为次要指标，数值不换行；剩余不足一成时转为警示色
+    .disk-stat {
+      &::ng-deep .ant-statistic-content {
         white-space: nowrap;
       }
 
-      &.low-space .ant-statistic-content {
+      &.low-space::ng-deep .ant-statistic-content {
         color: #cf1322;
       }
     }

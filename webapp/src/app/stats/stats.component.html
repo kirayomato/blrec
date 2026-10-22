@@ -16,12 +16,15 @@
         ></nz-statistic>
         <nz-statistic
           *ngIf="hasDiskInfo"
-          class="disk-free-stat"
+          class="disk-stat"
           [class.low-space]="diskFreeLow"
           nzTitle="磁盘剩余"
-          [nzValue]="stats.disk_free! | filesize"
-          [nzSuffix]="'/ 共 ' + (stats.disk_total! | filesize)"
+          [nzValue]="stats.disk_free!"
+          [nzValueTemplate]="diskValueTpl"
         ></nz-statistic>
+        <ng-template #diskValueTpl>
+          {{ diskFreeText }} / {{ stats.disk_total! | filesize }}
+        </ng-template>
         <button
           class="refresh-button"
           nz-button

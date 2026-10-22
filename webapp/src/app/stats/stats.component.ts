@@ -9,6 +9,7 @@ import {
 import { NzNotificationService } from 'ng-zorro-antd/notification';
 import { NzTableSortFn, NzTableSortOrder } from 'ng-zorro-antd/table';
 
+import { formatFilesize } from '../shared/utils';
 import { StatsService } from './shared/services/stats.service';
 import {
   MonthStatsRow,
@@ -51,6 +52,21 @@ export class StatsComponent implements OnInit {
 
   get hasDiskInfo(): boolean {
     return this.stats.disk_total !== null && this.stats.disk_free !== null;
+  }
+
+  /**
+   * 剩余空间与总量单位一致时省略单位，避免同一行重复；
+   * 不一致时保留，否则数值会被误读成总量的单位。
+   */
+  get diskFreeText(): string {
+    const free = this.stats.disk_free;
+    const total = this.stats.disk_total;
+    if (free === null || total === null) {
+      return '';
+    }
+    const [freeValue, freeUnit] = formatFilesize(free).split(' ');
+    const [, totalUnit] = formatFilesize(total).split(' ');
+    return freeUnit === totalUnit ? freeValue : `${freeValue} ${freeUnit}`;
   }
 
   // 取消排序时回到后端给出的默认顺序（按体积降序）
