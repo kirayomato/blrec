@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from functools import partial
 from pathlib import Path, PurePath
-from typing import Dict, Iterable, List, Optional, Set
+from typing import Dict, Iterable, List, Literal, Optional, Set
 
 from loguru import logger
 from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_none
@@ -19,6 +19,9 @@ from .space_monitor import DiskUsage, SpaceEventListener, SpaceMonitor
 __all__ = 'SpaceReclaimer', 'space_reclaimers'
 
 _instances: List['SpaceReclaimer'] = []
+
+# 文件被保留的原因，None 表示可以删除
+_KeepReason = Literal['sidecar', 'probe_failed', 'portrait']
 
 
 def space_reclaimers() -> Iterable['SpaceReclaimer']:
@@ -65,9 +68,6 @@ class SpaceReclaimer(SpaceEventListener, SwitchableMixin):
     # 竖屏且码率低于该值的录像体积不大，删掉腾不出多少空间，跳过不删
     _VIDEO_BITRATE_THRESHOLD = 3000  # kbps
 
-    # 体积清理时跳过一天内文件
-    _RECENTLY_WRITE_WINDOW = 24 * 60 * 60  # seconds
-
     def __init__(
         self,
         space_monitor: SpaceMonitor,
@@ -88,6 +88,12 @@ class SpaceReclaimer(SpaceEventListener, SwitchableMixin):
         self.rec_ttl = rec_ttl
         self.recycle_records = recycle_records
         self._room_limits: Dict[int, _RoomLimit] = {}
+
+    @property
+    def min_ttl(self) -> int:
+        """冷静期下限，体积清理也用它判断哪些文件算新写入。"""
+
+        return min(60 * 60, self.rec_ttl)
 
     async def on_space_no_enough(
         self, path: str, threshold: int, disk_usage: DiskUsage
@@ -157,11 +163,15 @@ class SpaceReclaimer(SpaceEventListener, SwitchableMixin):
         ttl = self.rec_ttl
         # 冷静期最多压缩到 1 小时，避免删到太新的录像；
         # rec_ttl 本身配得更短时以它为准，否则一轮都进不去、记录清理会彻底失效。
-        min_ttl = min(60 * 60, self.rec_ttl)
+        min_ttl = self.min_ttl
         probed: Set[str] = set()
+        # 缓存保留原因，兜底放弃竖屏保留时无需重新探测
+        keep_reasons: Dict[str, Optional[_KeepReason]] = {}
         try:
             while not is_space_enough(self.path, size):
                 if ttl < min_ttl:
+                    if await self._free_space_from_portrait(size, keep_reasons):
+                        return True
                     logger.warning(f'Unable to free {size} bytes from records')
                     return False
                 ts = datetime.now().timestamp() - ttl
@@ -170,7 +180,9 @@ class SpaceReclaimer(SpaceEventListener, SwitchableMixin):
                         continue
                     probed.add(path)
                     # 探测要跑 ffprobe，代价高，所以逐个按需进行，够空间就停
-                    if await self._should_keep(path):
+                    reason = await self._keep_reason(path)
+                    keep_reasons[path] = reason
+                    if reason is not None:
                         continue
                     await self._delete_record(path)
                     if is_space_enough(self.path, size):
@@ -180,6 +192,24 @@ class SpaceReclaimer(SpaceEventListener, SwitchableMixin):
         finally:
             # 录像删掉后房间目录会空掉，趁释放空间一并清掉
             await self._remove_empty_dirs()
+
+    async def _free_space_from_portrait(
+        self, size: int, keep_reasons: Dict[str, Optional[_KeepReason]]
+    ) -> bool:
+        """冷静期内腾不出空间时，放弃竖屏保留，删掉此前保留下来的竖屏录像。"""
+
+        portrait_paths = [
+            path for path, reason in keep_reasons.items() if reason == 'portrait'
+        ]
+        if not portrait_paths:
+            return False
+
+        logger.warning(f'Unable to free {size} bytes, deleting portrait records ...')
+        for path in portrait_paths:
+            await self._delete_record(path)
+            if is_space_enough(self.path, size):
+                return True
+        return False
 
     async def _remove_empty_dirs(self) -> None:
         """清掉输出目录下残留的空目录，输出目录本身不动。"""
@@ -211,41 +241,41 @@ class SpaceReclaimer(SpaceEventListener, SwitchableMixin):
         loop = asyncio.get_running_loop()
         await loop.run_in_executor(None, _remove)
 
-    async def _should_keep(self, path: str) -> bool:
-        """判断该文件是否保留不删。"""
+    async def _keep_reason(self, path: str) -> Optional[_KeepReason]:
+        """返回文件保留的原因，None 表示可以删除。"""
 
         video_path = _video_of_sidecar(path)
         if video_path is not None and os.path.isfile(video_path):
-            return True
+            return 'sidecar'
 
         if PurePath(path).suffix not in self._VIDEO_SUFFIX_SET:
-            return False
+            return None
 
-        return await self._is_low_quality_video(path)
+        return await self._video_keep_reason(path)
 
-    async def _is_low_quality_video(self, path: str) -> bool:
-        """竖屏且码率偏低的录像保留不删。"""
+    async def _video_keep_reason(self, path: str) -> Optional[_KeepReason]:
+        """竖屏录像保留不删，探测不出结果时也保留。"""
 
         info = await get_video_resolution_and_duration(path)
         if info is None:
             logger.warning(f'Failed to probe {path!r}, keep it instead')
-            return True
+            return 'probe_failed'
 
         width, height, duration = info
         if duration <= 0:
-            return True
+            return 'probe_failed'
 
         try:
             bitrate = os.path.getsize(path) * 8 / duration / 1000
         except OSError as e:
             logger.warning(f'Failed to get size of {path!r}: {repr(e)}')
-            return True
+            return 'probe_failed'
 
         if height > width:
             logger.info(f'Keep {path!r}, portrait {width}x{height}, {bitrate:.0f}kbps')
-            return True
+            return 'portrait'
 
-        return False
+        return None
 
     async def _delete_record(self, path: str) -> None:
         """删除录像，其附属文件跟随一起删除。"""
@@ -269,13 +299,27 @@ class SpaceReclaimer(SpaceEventListener, SwitchableMixin):
         if pattern is None:
             return False
 
-        keep_cache: Dict[str, bool] = {}
+        keep_cache: Dict[str, Optional[_KeepReason]] = {}
         deleted = False
 
-        async def should_keep(path: str) -> bool:
+        async def keep_reason(path: str) -> Optional[_KeepReason]:
             if path not in keep_cache:
-                keep_cache[path] = await self._should_keep(path)
+                keep_cache[path] = await self._keep_reason(path)
             return keep_cache[path]
+
+        async def delete_for_size(path: str, *, portrait: bool = False) -> int:
+            freed = self._file_size(path)
+            for sidecar in _sidecars_of_video(path):
+                if os.path.isfile(sidecar):
+                    freed += self._file_size(sidecar)
+            if portrait:
+                logger.warning(
+                    f'Delete portrait {path!r} exceeding keep size of room {room_id}'
+                )
+            else:
+                logger.info(f'Delete {path!r} exceeding keep size of room {room_id}')
+            await self._delete_record(path)
+            return freed
 
         now = datetime.now().timestamp()
 
@@ -291,7 +335,7 @@ class SpaceReclaimer(SpaceEventListener, SwitchableMixin):
                     break
                 if stat.st_atime >= cutoff:
                     continue
-                if await should_keep(path):
+                if await keep_reason(path) is not None:
                     continue
                 logger.info(f'Delete {path!r} exceeding keep days of room {room_id}')
                 await self._delete_record(path)
@@ -300,6 +344,7 @@ class SpaceReclaimer(SpaceEventListener, SwitchableMixin):
         if limit.max_keep_size > 0:
             paths = await self._get_room_file_paths(pattern)
             total_size = sum(map(self._file_size, paths))
+            portrait_paths: List[str] = []
             for path in paths:
                 if total_size <= limit.max_keep_size:
                     break
@@ -307,17 +352,22 @@ class SpaceReclaimer(SpaceEventListener, SwitchableMixin):
                     stat = os.stat(path)
                 except OSError:
                     continue
-                if now - stat.st_mtime < self._RECENTLY_WRITE_WINDOW:
+                if now - stat.st_mtime < self.min_ttl:
                     continue
-                if await should_keep(path):
+                reason = await keep_reason(path)
+                if reason == 'portrait':
+                    portrait_paths.append(path)
                     continue
-                freed = self._file_size(path)
-                for sidecar in _sidecars_of_video(path):
-                    if os.path.isfile(sidecar):
-                        freed += self._file_size(sidecar)
-                logger.info(f'Delete {path!r} exceeding keep size of room {room_id}')
-                await self._delete_record(path)
-                total_size -= freed
+                if reason is not None:
+                    continue
+                total_size -= await delete_for_size(path)
+                deleted = True
+
+            # 体积仍超限时放弃竖屏保留
+            for path in portrait_paths:
+                if total_size <= limit.max_keep_size:
+                    break
+                total_size -= await delete_for_size(path, portrait=True)
                 deleted = True
 
         return deleted
